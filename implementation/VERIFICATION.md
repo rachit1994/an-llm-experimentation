@@ -185,6 +185,20 @@ A suite that cannot kill "return a constant from the encoder" is worthless for t
 
 ## 7. L3 — Known-answer end-to-end on synthetic data (the anti-self-deception layer)
 
+> **MANDATORY, learned from a real defect (see AGENTS.md scar).** Two rules govern every known-answer
+> test (`kat_*`, `kae_*`), enforced by the `anti-vacuity-lint` CI job (§9 wiring) and the DoD (§8):
+>
+> 1. **The expected value must be computed *independently* of the artifact under test.** The truth for
+>    a data fixture comes from the parameters that *define* the source (e.g. the transition matrix `P`
+>    and its stationary distribution), **never** from counting the sample you generated. If "expected"
+>    and "actual" share a computation, the difference is structurally `0` and the test proves nothing.
+> 2. **Every such test ships a paired anti-vacuity canary** — a sibling test (name contains
+>    `can_say_no` / `vacuit` / `canary`) that feeds a *wrong* input and asserts the check *fails* by a
+>    wide margin. A known-answer test with no canary is not evidence and does not satisfy the DoD.
+>
+> Tell to watch for: an analytic-vs-empirical comparison returning **exactly** `0.000000`. That is a
+> self-comparison bug, not a success — investigate before believing it.
+
 "Loss went down" is not evidence the model works; the loss can go down while the model memorizes noise
 or collapses. The fix is data whose **correct answer is known before the model runs**, computed by the
 data generator, not the model.

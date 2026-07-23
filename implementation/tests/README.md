@@ -89,6 +89,7 @@ Jobs, all required to merge:
 | job | runs | fails when |
 |---|---|---|
 | `test` | `cargo test --workspace` | any KAT / property / `nc_*` red |
+| `anti-vacuity-lint` | `bash scripts/lint_canaries.sh` | a `kat_*`/`kae_*` known-answer test has no paired canary (AGENTS.md rule 2) |
 | `frozen-gates` | check `sha256(gates.toml) == gates.lock` | a threshold was changed without updating the lock |
 | `verify-results` | `report --check` then `git diff --exit-code results/` | a results number was hand-edited or is stale |
 | `repro-smoke` | clean checkout → run `kae_markov_bpb` on CPU, fixed seed | produced BPB ≠ ledger BPB ± 0.02 |
