@@ -15,5 +15,6 @@ pub mod autodiff;
 pub mod bind;
 pub mod born;
 pub mod complex;
+pub mod encoder;
 pub mod hopfield;
 pub mod unitary;

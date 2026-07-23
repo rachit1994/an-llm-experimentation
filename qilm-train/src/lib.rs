@@ -11,6 +11,7 @@
 
 pub mod gate;
 pub mod metrics;
+pub mod model_pattern;
 pub mod model_token;
 pub mod provenance;
 pub mod report;
