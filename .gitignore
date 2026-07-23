@@ -1,0 +1,55 @@
+# ---- Rust ----
+/target/
+**/target/
+Cargo.lock          # library crates: keep unpinned; binaries may force-add (see below)
+**/*.rs.bk
+*.pdb
+
+# NOTE (C4 determinism): for the *binary* crates that produce headline numbers, the pinned
+# Cargo.lock IS part of the reproducibility contract. Those crates force-add their lockfile:
+#   git add -f qilm-train/Cargo.lock
+# The blanket ignore above is for library crates only.
+
+# ---- Data / model artifacts (never commit large or generated artifacts) ----
+/data/
+data/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.onnx
+*.gguf
+*.npy
+*.npz
+checkpoints/
+runs/
+wandb/
+
+# ---- Logs / reports (generated; the config that made them is committed, not the output) ----
+*.log
+logs/
+reports/*.html
+reports/*.csv
+!reports/.gitkeep
+
+# ---- Scratch / temp ----
+scratch/
+tmp/
+*.tmp
+.cache/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---- Python (only the quarantined ≤1-week Phase-1 spike; see implementation/00-...) ----
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
