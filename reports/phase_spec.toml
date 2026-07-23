@@ -1,68 +1,85 @@
-# Phase specification: maps each phase 0..6 to gates and their interpretations.
-# Kind: {project_kill, narrow, infra} determines verdict logic.
-# See METRICS-AND-GATES.md §7 and VERIFICATION.md §8 for gate definitions.
+# Phase specification: maps each phase 0..6 to its gates and their interpretations.
+# This is the AUTHORITY the report generator uses to decide, per phase, which gates
+# to evaluate and how to compute the worth-pursuing verdict.
+#
+# `kind` drives verdict logic (VERIFICATION.md §8, gate defs in METRICS-AND-GATES.md §6-7):
+#   - project_kill : a FAIL means STOP (the load-bearing feasibility claim is dead).
+#   - narrow       : a FAIL means PROCEED (narrowed) — drop that specific claim, keep going.
+#   - infra        : informational; never changes the verdict on its own.
+#
+# Titles here are rendered as "# Phase N: <title>" — do NOT repeat the "Phase N:" prefix.
+# `meaning` restates the gate's frozen threshold (which lives in gates.toml, not here) in words;
+# no measured numbers are ever written in this file (AGENTS.md Rule 5).
+#
+# The phase->headline-gate mapping mirrors the task cards in implementation/tests/PHASE-N.md.
 
 [phase_0]
-title = "Phase 0: Foundation & gradcheck (infrastructure validation)"
+title = "Foundation & gradcheck (infrastructure validation)"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "gradcheck", kind = "infra", meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
 ]
-# Phase 0 has no decision gates (it is purely infrastructure).
-# Verdict: PROCEED (foundation validated).
+# Phase 0 is pure infrastructure (the anti-fake harness). No decision gates.
+# Verdict: PROCEED once the provenance -> gate -> report chain is proven end-to-end.
 
 [phase_1]
-title = "Phase 1: Pattern model & core invariance"
+title = "Pattern feasibility, G0, and the anti-collapse controls"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
-    { name = "invariance", kind = "narrow", meaning = "Encoder invariance: within >= 0.90, between <= 0.30, margin >= 0.50" },
+    { name = "gradcheck", kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",  kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",        kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
 ]
-# If any project_kill gate fails -> STOP (pattern objective is load-bearing).
-# If invariance fails but project_kill gates pass -> PROCEED (narrowed): drop encoder invariance claim.
+# Headline gate: G0 (feasibility). If collapse or G0 fails, the pattern objective is not
+# viable and nothing downstream is worth building -> STOP.
 
 [phase_2]
-title = "Phase 2: Attractor stability & pattern retrieval"
+title = "Attractor stability & encoder invariance (the H4 headline)"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "gradcheck",  kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",   kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",         kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
+    { name = "invariance", kind = "narrow",       meaning = "H4 encoder invariance WITH discrimination margin (within high, between low, margin large) — cannot be won by collapse" },
 ]
-# Phase 2 focuses on attractor stability (retrieval from corrupted code).
-# If project_kill gates fail -> STOP; else PROCEED.
+# Headline gate: H4 (invariance with margin). H4 is a narrow gate: if it fails but the
+# project_kill gates pass, PROCEED (narrowed) and drop the encoder-invariance claim.
 
 [phase_3]
-title = "Phase 3: Extended corpus & multilingual patterns"
+title = "Glow / calibrated confidence (the H5 headline)"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "gradcheck",   kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",    kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",          kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
+    { name = "calibration", kind = "narrow",       meaning = "H5 glow lowers ECE by the required margin without tripping the accuracy guard" },
 ]
-# Similar structure to Phase 1/2.
+# Headline gate: H5 (calibration). Narrow: a FAIL drops the calibrated-confidence claim only.
 
 [phase_4]
-title = "Phase 4: Mixed-precision & efficiency"
+title = "Complex/phase & the decisive H1 ablation"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "gradcheck", kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",  kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",        kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
+    { name = "phase",     kind = "narrow",       meaning = "H1 complex/phase ablation: phase carries decisive signal (effect size AND paired significance over >=5 seeds)" },
 ]
+# Headline gate: H1 (does phase help?). Narrow: a FAIL means the data did not want phase —
+# drop the complex-amplitude claim, keep the rest.
 
 [phase_5]
-title = "Phase 5: Unitary mechanism & copy task"
+title = "Unitary dynamics (copy / long-range)"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
-    { name = "calibration", kind = "narrow", meaning = "Calibration: ECE(glow) <= ECE(baseline) - 0.02, accuracy guard >= -0.5pt" },
+    { name = "gradcheck", kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",  kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",        kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
 ]
-# Phase 5 adds calibration gate.
+# The copy task is a DIFFERENTIAL known-answer test (unitary beats no_unitary at long delay),
+# evaluated in the Phase-5 test suite rather than as a frozen numeric threshold gate. A failed
+# differential narrows the long-range/unitary claim (VERIFICATION.md §8); it is not a project-kill.
 
 [phase_6]
-title = "Phase 6: Scaling & production"
+title = "Generation + readout mitigations (the O(|V|·d) wall)"
 gates = [
-    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
-    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
-    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
-    { name = "improvement", kind = "narrow", meaning = "Iso-param BPB gap: pattern < baseline - 0.02 bits/byte" },
+    { name = "gradcheck",   kind = "infra",        meaning = "Finite-difference gradcheck: max rel err below tolerance for every kernel" },
+    { name = "collapse",    kind = "project_kill", meaning = "H3 non-collapse: effective-rank & mean-std both at least half of the target patterns'" },
+    { name = "g0",          kind = "project_kill", meaning = "H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline" },
+    { name = "improvement", kind = "narrow",       meaning = "Iso-param quality: pattern-model BPB beats the baseline by the required gap at matched (d,L)" },
 ]
+# Headline: iso-param improvement. Narrow: a FAIL drops the efficiency claim but keeps feasibility.

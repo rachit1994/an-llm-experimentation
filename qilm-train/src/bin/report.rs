@@ -19,11 +19,13 @@ fn main() -> ExitCode {
     let runs_dir: PathBuf = workspace_root.join("runs");
     let gates_toml: PathBuf = workspace_root.join("gates.toml");
     let results_dir: PathBuf = workspace_root.join("results");
+    let reports_dir: PathBuf = workspace_root.join("reports");
 
     let cfg = ReportConfig {
         runs_dir: &runs_dir,
         gates_toml: &gates_toml,
         results_dir: &results_dir,
+        reports_dir: &reports_dir,
         workspace_root: &workspace_root,
     };
 

@@ -48,6 +48,10 @@ fn test_report_refuses_fabrication() {
         runs_dir: runs_dir.path(),
         gates_toml: &workspace_root().join("gates.toml"),
         results_dir: results_dir.path(),
+        // These harness tests only exercise generate()/check() (RESULTS.md),
+        // which never write a phase report; point reports_dir at the isolated
+        // temp results_dir so nothing can touch the committed reports/ tree.
+        reports_dir: results_dir.path(),
         workspace_root: &workspace_root(),
     };
 
@@ -82,6 +86,10 @@ fn test_report_roundtrip() {
         runs_dir: runs_dir.path(),
         gates_toml: &workspace_root().join("gates.toml"),
         results_dir: results_dir.path(),
+        // These harness tests only exercise generate()/check() (RESULTS.md),
+        // which never write a phase report; point reports_dir at the isolated
+        // temp results_dir so nothing can touch the committed reports/ tree.
+        reports_dir: results_dir.path(),
         workspace_root: &workspace_root(),
     };
 
@@ -137,6 +145,10 @@ fn test_report_check_detects_hand_edit() {
         runs_dir: runs_dir.path(),
         gates_toml: &workspace_root().join("gates.toml"),
         results_dir: results_dir.path(),
+        // These harness tests only exercise generate()/check() (RESULTS.md),
+        // which never write a phase report; point reports_dir at the isolated
+        // temp results_dir so nothing can touch the committed reports/ tree.
+        reports_dir: results_dir.path(),
         workspace_root: &workspace_root(),
     };
     generate(&cfg).unwrap();
@@ -180,6 +192,10 @@ fn test_report_check_ignores_git_sha_churn_across_commits() {
         runs_dir: runs_dir.path(),
         gates_toml: &workspace_root().join("gates.toml"),
         results_dir: results_dir.path(),
+        // These harness tests only exercise generate()/check() (RESULTS.md),
+        // which never write a phase report; point reports_dir at the isolated
+        // temp results_dir so nothing can touch the committed reports/ tree.
+        reports_dir: results_dir.path(),
         workspace_root: &workspace_root(),
     };
     generate(&cfg).unwrap();
