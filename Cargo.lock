@@ -299,6 +299,7 @@ name = "qilm-oracle"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "proptest",
  "qilm-core",
  "rand 0.10.2",
  "rand_chacha 0.10.0",
