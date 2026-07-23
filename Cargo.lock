@@ -300,6 +300,8 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "qilm-core",
+ "rand 0.10.2",
+ "rand_chacha 0.10.0",
 ]
 
 [[package]]

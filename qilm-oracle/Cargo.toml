@@ -10,3 +10,5 @@ qilm-core = { path = "../qilm-core" }
 
 [dev-dependencies]
 approx = "0.5.1"
+rand = "0.10.2"
+rand_chacha = "0.10.0"
