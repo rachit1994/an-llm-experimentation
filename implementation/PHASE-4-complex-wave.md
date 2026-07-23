@@ -8,6 +8,9 @@ fake either outcome.
 Depends on: Phase 0 (`Complex` kernels) and Phase 1 (a working objective to attach them to).
 Blocks: Phase 5 (unitary builds on complex).
 
+**Test suite (execute this):** [`tests/PHASE-4.md`](tests/PHASE-4.md) — the param-matched `phase=0`
+ablation (`nc_param_match` kills the rigged delete-imaginary mutant) and the H1 effect-size + significance verdict.
+
 ---
 
 ## What we build

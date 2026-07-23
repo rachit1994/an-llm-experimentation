@@ -8,6 +8,10 @@ holds.
 Depends on: Phase 1 (the pattern objective) and Phase 2 (attractor memory to retrieve concepts).
 Blocks: nothing — this is the top of the ladder.
 
+**Test suite (execute this):** [`tests/PHASE-6.md`](tests/PHASE-6.md) — measured readout costs
+(`kat_readout_cost`), per-mitigation (BPB, cost) frontier points, and the encoder-only fallback as a
+*measured* verdict.
+
 ---
 
 ## The wall, restated

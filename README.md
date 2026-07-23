@@ -90,6 +90,7 @@ simulability pincer), which is exactly why the whole thing runs classically. See
 15. [`REVIEW-LOG.md`](docs/REVIEW-LOG.md) — five adversarial review passes and what each changed.
 16. [`implementation/`](implementation/README.md) — the Rust build ladder, value-ranked and kill-gated.
 17. [`implementation/METRICS-AND-GATES.md`](implementation/METRICS-AND-GATES.md) — **the testability contract**: every gate as an exact, runnable PASS/FAIL (bits-per-byte, collapse ratios, the invariance margin, ECE, effect sizes, the paired significance test). No "~" thresholds. Read this to check that each claimed number is actually measurable.
+18. [`implementation/VERIFICATION.md`](implementation/VERIFICATION.md) + [`implementation/tests/`](implementation/tests/README.md) — **how "green" is made to mean "works"**: the five-layer test pyramid, the anti-fake provenance system (numbers can only be *computed*, never typed), the negative-control battery (tests that must go red on broken code), the mutation catalog, and per-phase task cards a coding agent executes. Read this if your worry is "all tests pass but the model doesn't actually work / doesn't hit the numbers."
 
 ---
 

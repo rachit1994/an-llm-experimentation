@@ -12,6 +12,17 @@ the paired significance test — lives in [`METRICS-AND-GATES.md`](METRICS-AND-G
 below state each gate in shorthand and defer to that file for the runnable definition; a threshold that
 cannot be computed from a logged run (or that contains a "~") is not a gate.
 
+**How the numbers are made trustworthy (read before coding):**
+[`VERIFICATION.md`](VERIFICATION.md) is the testing architecture — the five-layer pyramid, the
+anti-fake provenance system (numbers can only enter a report by being computed, never typed), the
+negative-control battery (tests that must go *red* on broken code), and the mutation catalog (proof the
+suite isn't vacuous). It exists to defeat the specific failure "all tests green, science still broken."
+[`tests/`](tests/README.md) turns it into **per-phase task cards** an implementing agent (Sonnet/Haiku)
+executes top-to-bottom — each card names the file, the signature, the test that defines done, and the
+negative control that must stay red. **No phase's numbers are believed until its Definition-of-Done
+(VERIFICATION §8) is green: unit tests + negative controls + a known-answer end-to-end that reaches a
+target computed from the data, not the model.**
+
 ---
 
 ## Phase table (highest-value-and-cheapest-to-kill first)

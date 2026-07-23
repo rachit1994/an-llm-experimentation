@@ -6,6 +6,9 @@ it beats a no-glow model on calibration. This is the product leg. Cheap to build
 Depends on: Phase 2 (glow deepens the attractors that Phase 2 stores).
 Blocks: nothing hard-required, but it is the on-device value story (doc 05 stakeholder framing).
 
+**Test suite (execute this):** [`tests/PHASE-3.md`](tests/PHASE-3.md) — the ECE known-answer test, the
+accuracy-guard control (`nc_glow_accuracy_guard`), and the runaway control (`nc_runaway_off`).
+
 ---
 
 ## What we build (the mechanism from doc 10)

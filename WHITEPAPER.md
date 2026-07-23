@@ -538,7 +538,24 @@ data did not want phase). Every headline comparison uses this same effect-size-p
 discipline with its own pre-registered $\delta$ (listed in `implementation/METRICS-AND-GATES.md` §7);
 the constants are frozen before the first run to prevent goalpost-moving.
 
-### 9.4 What "test against LLMs" means
+### 9.4 Verification: why a reported number is trustworthy
+
+Falsifiable gates are worthless if the pipeline can report a number it did not earn. The engineering
+protocol (companion `implementation/VERIFICATION.md`) enforces three properties. **(i) Numbers are
+computed, never typed:** every run emits a signed artifact (git SHA, dataset hash, code fingerprint,
+seed), and results tables are *generated* by a tool that refuses to emit a value not backed by a
+provenance-matching run — a hand-edited digit fails CI's regenerate-and-diff. **(ii) Metrics are
+validated by negative controls:** each metric has a test that must go *red* on deliberately-broken
+code (a collapsed encoder must fail the collapse and invariance gates; an untrained model must score
+near-uniform BPB; shuffled labels must score at chance), so a green metric is one that can also say
+"no". **(iii) Behaviour is checked against a known answer, not "loss went down":** a synthetic Markov
+source with entropy $H$ computed analytically from its transition matrix gives an absolute target — the
+model must reach $\mathrm{BPB}\in[H, H+0.15]$ and beat the order-0 entropy $H_0$ by a fixed margin — and
+mutation testing proves the suite would have caught a real bug. Unit tests are the base of this pyramid,
+not the whole of it: the failure this guards against is the one where every unit test passes and the
+model has silently collapsed.
+
+### 9.5 What "test against LLMs" means
 
 It does **not** mean a head-to-head against frontier models; that comparison is uninformative across a $\sim 10^3\times$ scale gap and any framing implying we might win it is a credibility hazard. It means three apples-to-apples things: **(a) mechanism parity** — compare against a *parameter-matched Transformer we build ourselves* at equal data and budget; **(b) the Pareto frontier** — plot quality against cost (parameters, FLOPs, memory, latency, energy) across several small sizes; **(c) scaling extrapolation** — fit the small-scale trend and extrapolate with intervals, explicitly labeled as extrapolation, never presented as a measured large-scale result.
 
@@ -552,7 +569,7 @@ It does **not** mean a head-to-head against frontier models; that comparison is 
 4. **Anti-collapse regularizers have their own failure modes** (VICReg hyperparameter sensitivity; contrastive negative-sampling; VQ codebook collapse). H3 instruments for all of them, but "no collapse" is a continual measurement, not a one-time guarantee.
 5. **Capacity bounds are existence/aggregate results.** The JL packing (§5.2) is a loose lower bound; modern-Hopfield capacity [10] depends on pattern separation $\Delta$, and real learned patterns are neither uniform nor maximally separated.
 6. **Calibration can be gamed by evaluation leakage.** ECE on training-distribution data is trivially flattering; H5 is defined on held-out splits precisely to prevent this.
-7. **Small-scale conclusions may not scale.** Nothing here establishes that complex/pattern/unitary structure keeps winning into the billions of parameters; §9.4 confines our claims to the frontier we can measure plus labeled extrapolation.
+7. **Small-scale conclusions may not scale.** Nothing here establishes that complex/pattern/unitary structure keeps winning into the billions of parameters; §9.5 confines our claims to the frontier we can measure plus labeled extrapolation.
 8. **We enter a mature, crowded field, so the novelty is narrow by construction.** VSA/HDC is 35 years old [25,26,27,29] and shared-embedding alignment [7,28] is strong; we do not out-scale either. The contribution is precisely the *intersection* nobody occupies: a **learned, from-scratch** (C1) VSA-style encoder whose binding is realized in the wave/frequency domain, whose patterns are **learned attractors**, and which carries a **calibrated, inspectable** confidence signal. If a reviewer reads any one of these axes in isolation, the work looks derivative; the claim lives only in their conjunction, and each axis is individually ablatable (§9.2).
 9. **Cross-modal invariance is asserted, not demonstrated.** The "one pattern for image, text, or video" ambition requires from-scratch per-modality encoders that C1 and the M1 budget do not permit to validate here. Presenting it as a result — rather than as the stated destination beyond single-modality invariance (H4) — would be the exact over-claim this framing exists to avoid.
 

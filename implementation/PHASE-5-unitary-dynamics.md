@@ -7,6 +7,9 @@ gain.
 Depends on: Phase 4 (unitary evolution acts on the complex state).
 Blocks: Phase 6 (generation may use the recurrence).
 
+**Test suite (execute this):** [`tests/PHASE-5.md`](tests/PHASE-5.md) — unitarity-preserved-through-training
+proptest and the differential `kae_copy` (unitary wins where the free-recurrence control fails).
+
 ---
 
 ## What we build (two parameterizations, chosen by backend)

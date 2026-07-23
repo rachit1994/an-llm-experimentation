@@ -8,6 +8,10 @@ theoretical.
 Depends on: Phase 1 passing G0 (there is no point storing patterns the objective can't learn).
 Blocks: Phase 3 (glow needs memory) and Phase 6 (generation retrieves concepts).
 
+**Test suite (execute this):** [`tests/PHASE-2.md`](tests/PHASE-2.md) — the invariance metric plus the
+two controls that make it non-gameable (`nc_collapsed_invariance`, `nc_invariance_needs_Linv`) and the
+`kae_invariance` planted-concept fixture.
+
 ---
 
 ## What we build

@@ -7,6 +7,10 @@ on this. Estimate: this plus Phase 0 is the **~3–4 week** kill-or-prove-the-co
 Depends on: Phase 0 (a gradient-checked `Complex` stack + byte data + fixed splits).
 Blocks: Phases 2, 3, 4 (and thus everything).
 
+**Test suite (execute this):** [`tests/PHASE-1.md`](tests/PHASE-1.md) — task cards, negative controls
+(`nc_collapse_canary`, `nc_untrained_bpb`), and the known-answer end-to-end `kae_markov_bpb`. Verified
+gates only ([`VERIFICATION.md`](VERIFICATION.md)): green ≠ done until the DoD is met.
+
 ---
 
 ## What we build

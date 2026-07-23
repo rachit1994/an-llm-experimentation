@@ -4,6 +4,12 @@ The engineering charter for the build. It picks the stack, defines the complex-n
 representation, sets the correctness discipline (a gradient check per kernel), and states the one
 honest escape valve. Everything here serves [`../docs/GROUND-UP-CONSTRAINTS.md`](../docs/GROUND-UP-CONSTRAINTS.md).
 
+**Test suite (execute this first):** [`tests/PHASE-0.md`](tests/PHASE-0.md) builds the kernels **and**
+the anti-fake harness (fixtures with computed truth, the negative-control harness, the provenance/report
+generator, frozen gates, CI) that every later number depends on. The full testing architecture — why
+green must mean *working*, not just *compiling* — is [`VERIFICATION.md`](VERIFICATION.md). Build the
+harness before any model code.
+
 ---
 
 ## The Rust stack
