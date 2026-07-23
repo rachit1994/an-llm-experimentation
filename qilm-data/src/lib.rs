@@ -12,3 +12,7 @@
 
 pub mod synth;
 pub mod splits;
+
+// Re-export public types and functions
+pub use synth::{synth_markov, synth_concepts, MarkovTruth, ConceptTruth, ConceptItem, write_truth_json};
+pub use splits::load_split;
