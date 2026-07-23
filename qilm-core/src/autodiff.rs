@@ -68,7 +68,15 @@ pub type NodeId = usize;
 #[derive(Clone, Debug)]
 enum Op {
     Leaf,
-    SumSquares { x: NodeId },
+    SumSquares {
+        x: NodeId,
+    },
+    Add {
+        a: NodeId,
+        b: NodeId,
+        /// true when `b` is a `(1, cols)` bias broadcast over `a`'s rows.
+        broadcast_b: bool,
+    },
 }
 
 struct Node {
@@ -141,6 +149,56 @@ impl Tape {
         self.push(vec![loss], Shape::mat(1, 1), Op::SumSquares { x })
     }
 
+    /// Elementwise add. If `b`'s shape equals `a`'s, this is a plain
+    /// elementwise add. If `b` is `(1, cols)` and `a` is `(rows, cols)`, `b`
+    /// is broadcast as a bias row over every row of `a` (this is the "+b" in
+    /// `linear`). Any other shape mismatch panics.
+    pub fn add(&mut self, a: NodeId, b: NodeId) -> NodeId {
+        let a_shape = self.nodes[a].shape;
+        let b_shape = self.nodes[b].shape;
+
+        if a_shape == b_shape {
+            let value: Vec<f64> = self.nodes[a]
+                .value
+                .iter()
+                .zip(&self.nodes[b].value)
+                .map(|(x, y)| x + y)
+                .collect();
+            self.push(
+                value,
+                a_shape,
+                Op::Add {
+                    a,
+                    b,
+                    broadcast_b: false,
+                },
+            )
+        } else if b_shape.rows == 1 && b_shape.cols == a_shape.cols {
+            let cols = a_shape.cols;
+            let mut value = self.nodes[a].value.clone();
+            let bias = &self.nodes[b].value;
+            for r in 0..a_shape.rows {
+                for c in 0..cols {
+                    value[r * cols + c] += bias[c];
+                }
+            }
+            self.push(
+                value,
+                a_shape,
+                Op::Add {
+                    a,
+                    b,
+                    broadcast_b: true,
+                },
+            )
+        } else {
+            panic!(
+                "Tape::add: shapes {a_shape:?} and {b_shape:?} are neither equal nor \
+                 bias-broadcastable (b must be (1, a.cols))"
+            );
+        }
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -184,6 +242,22 @@ impl Tape {
                 let g0 = node_grad[0];
                 let gx: Vec<f64> = x_val.iter().map(|v| 2.0 * g0 * v).collect();
                 self.accumulate(x, &gx);
+            }
+            Op::Add { a, b, broadcast_b } => {
+                self.accumulate(a, &node_grad);
+                if broadcast_b {
+                    let a_shape = self.nodes[a].shape;
+                    let cols = a_shape.cols;
+                    let mut bg = vec![0.0; cols];
+                    for r in 0..a_shape.rows {
+                        for c in 0..cols {
+                            bg[c] += node_grad[r * cols + c];
+                        }
+                    }
+                    self.accumulate(b, &bg);
+                } else {
+                    self.accumulate(b, &node_grad);
+                }
             }
         }
     }
