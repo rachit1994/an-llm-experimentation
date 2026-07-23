@@ -1,0 +1,166 @@
+name: verify
+
+# CCR anti-fake CI (implementation/VERIFICATION.md, implementation/tests/README.md
+# "CI wiring"). Every job here defeats a specific lie a green build could
+# otherwise tell (see VERIFICATION.md §1's threat table). Do not weaken a
+# check to make it pass — a failing job is a finding, not a bug to silence.
+#
+# Toolchain is pinned via rust-toolchain.toml (C4); GitHub's ubuntu-latest
+# runners ship rustup, which auto-installs that exact pinned toolchain (incl.
+# rustfmt/clippy components) the first time cargo/rustc runs in this repo.
+
+on:
+  push:
+    branches: [main, "build/**"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Primarily to give the `mutants` job (VERIFICATION.md §6: "allowed to
+    # run nightly given cost") a trigger — this also re-runs the other jobs
+    # nightly, which is a harmless (if slightly redundant) full-suite check.
+    - cron: "0 7 * * *"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # Defeats T1 (vacuous assertions slip through) by simply running every KAT,
+  # gradcheck, property test, and nc_* control in the workspace.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pin toolchain (reads rust-toolchain.toml)
+        run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo fmt --check (qilm-core, qilm-oracle, qilm-train)
+        # Scoped to the crates this agent owns. qilm-data is owned by a
+        # separate agent and is intentionally left untouched; its formatting
+        # is that agent's concern, not a blocker for this workflow.
+        run: cargo fmt --check -p qilm-core -p qilm-oracle -p qilm-train
+      - name: cargo clippy --workspace (deny warnings)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test --workspace
+        run: cargo test --workspace --locked
+
+  # Defeats T7 (a threshold quietly slid to make a run pass): gates.toml's
+  # hash must match the committed gates.lock. A real threshold change must
+  # update gates.lock in the same commit -- a visible, reviewable diff.
+  frozen-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: sha256(gates.toml) == gates.lock
+        run: |
+          computed=$(sha256sum gates.toml | awk '{print $1}')
+          locked=$(tr -d '[:space:]' < gates.lock)
+          echo "computed: $computed"
+          echo "locked:   $locked"
+          if [ "$computed" != "$locked" ]; then
+            echo "::error::gates.toml has changed without updating gates.lock — this is not allowed silently. If the threshold change is intentional, update gates.lock in the same commit."
+            exit 1
+          fi
+
+  # Defeats T5/T6 (fabricated or stale numbers in results/): regenerate a
+  # fresh harness run, run `report --check`, and diff against the committed
+  # results/. Any drift -- including a single hand-edited digit -- fails.
+  verify-results:
+    runs-on: ubuntu-latest
+    needs: [frozen-gates]
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+      - name: Produce a fresh harness self-check run
+        run: cargo run -p qilm-train --bin selfcheck --locked
+      - name: report --check (regenerate and diff against committed results/)
+        run: cargo run -p qilm-train --bin report --locked -- --check
+
+  # Defeats T6 (stale/unreproducible pipeline): from a clean checkout, on
+  # CPU, with a fixed seed, prove the harness reproduces bit-for-bit.
+  #
+  # TODO(Phase 1): once qilm-data's synth_markov fixture and the pattern
+  # model exist, extend this job to run kae_markov_bpb end-to-end and assert
+  # the produced BPB matches the ledger value within ±0.02 bits/byte
+  # (VERIFICATION.md §4.4, §7.1) -- that is the job's real purpose. Today,
+  # with no model yet, it is wired against the nearest true analogue: the
+  # harness self-check (provenance::write_metrics -> gradcheck) run twice
+  # from a clean checkout must produce bit-for-bit identical metrics
+  # (excluding wall_clock_s/host, exactly nc_determinism's own exclusion
+  # list) -- proving the pipeline that will host kae_markov_bpb already
+  # reproduces deterministically.
+  repro-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+      - name: Run the harness self-check twice from a clean runs/ dir
+        run: |
+          set -euo pipefail
+          cargo run -p qilm-train --bin selfcheck --locked
+          run1=$(find runs -name metrics.json)
+          cp "$run1" /tmp/run1.json
+          rm -rf runs
+          cargo run -p qilm-train --bin selfcheck --locked
+          run2=$(find runs -name metrics.json)
+          cp "$run2" /tmp/run2.json
+      - name: Assert bit-for-bit determinism (excl. wall_clock_s, host)
+        run: |
+          set -euo pipefail
+          jq 'del(.wall_clock_s, .host)' /tmp/run1.json > /tmp/run1.norm.json
+          jq 'del(.wall_clock_s, .host)' /tmp/run2.json > /tmp/run2.norm.json
+          if ! diff -u /tmp/run1.norm.json /tmp/run2.norm.json; then
+            echo "::error::repro-smoke: two runs of the same seeded harness self-check produced different metrics — determinism (C4) is broken."
+            exit 1
+          fi
+          echo "repro-smoke: bit-for-bit deterministic (excl. wall_clock_s, host)"
+
+  # Defeats "delete a negative control to get green" (VERIFICATION.md §8.7:
+  # "deleting a canary fails CI") and reports line coverage for visibility.
+  #
+  # SCOPE NOTE: the `nc_*` count is ratcheted against a committed baseline
+  # (ci/nc_count_baseline.txt) -- it can only go up, and raising it is a
+  # visible, reviewable commit, exactly like gates.lock. True historical
+  # *coverage-percentage* ratcheting (comparing against the previous run on
+  # main) needs a persisted baseline across CI runs (an artifact/cache keyed
+  # off main) that Phase 0 does not yet set up; this job computes and prints
+  # current coverage for visibility but does not yet fail the build on a
+  # coverage regression. Documented as a known Phase-0 scope limitation, not
+  # silently skipped.
+  coverage-ratchet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+      - name: Count nc_* negative-control tests
+        run: |
+          set -euo pipefail
+          count=$(grep -rhoE 'fn nc_[A-Za-z0-9_]*' --include='*.rs' -- **/tests/*.rs 2>/dev/null | sort -u | wc -l)
+          baseline=$(tr -d '[:space:]' < ci/nc_count_baseline.txt)
+          echo "nc_* test count: $count (baseline: $baseline)"
+          if [ "$count" -lt "$baseline" ]; then
+            echo "::error::nc_* negative-control count dropped from $baseline to $count — a canary was deleted. Restore it, or if a control was legitimately merged/renamed, update ci/nc_count_baseline.txt in the same commit with justification."
+            exit 1
+          fi
+        shell: bash
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked --version 0.8.7
+      - name: Coverage report (qilm-core, qilm-oracle, qilm-train)
+        run: cargo llvm-cov -p qilm-core -p qilm-oracle -p qilm-train --summary-only
+
+  # Not part of the required-to-merge set (cargo-mutants is slow); wired per
+  # implementation/tests/README.md's CI table and VERIFICATION.md §6, run
+  # nightly + on-demand rather than on every push.
+  mutants:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustc --version && cargo --version
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants --locked
+      - name: cargo mutants -p qilm-core (kernels only — the DoD's mutant catalog scope)
+        run: cargo mutants -p qilm-core --no-shuffle
