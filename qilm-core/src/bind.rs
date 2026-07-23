@@ -8,12 +8,14 @@
 //! approximately flat and `conj(fft(b)) * fft(b) ≈ |fft(b)|^2` acts like a
 //! near-constant deconvolution kernel).
 //!
-//! `num_complex::Complex64` (rustfft's own type) is used only inside this
-//! module at the FFT boundary; it never appears in this crate's public API —
-//! everywhere else uses our own `complex::Complex` pair type.
+//! The DFT here is a hand-rolled `O(d^2)` implementation (no FFT crate — minimal
+//! dependency policy, PRIOR-ART-AND-REUSE.md). At Phase-0 test sizes (`d ~ 256`)
+//! this is instant, and `bind_freq` (DFT-multiply-inverse) remains an INDEPENDENT
+//! computation from the direct `circular_conv`, so their equality (Proposition 0)
+//! is a genuine cross-check, not a self-comparison.
 
 use crate::complex::Complex;
-use rustfft::{num_complex::Complex64, FftPlanner};
+use std::f64::consts::TAU;
 
 /// Direct O(d^2) circular convolution, the textbook definition:
 /// (a ★ b)[n] = sum_{k=0}^{d-1} a[k] * b[(n-k) mod d].
@@ -44,50 +46,66 @@ pub fn circular_conv(a: &[f64], b: &[f64]) -> Vec<f64> {
 
 /// Forward DFT of a real signal, returned as our own `Complex` pair type.
 /// Unnormalized (X_k = sum_n x_n * exp(-2*pi*i*k*n/N)), matching the standard
-/// forward-FFT convention.
+/// forward-FFT convention. Hand-rolled O(d^2) (no FFT crate).
+#[allow(clippy::needless_range_loop)]
 pub fn fft(x: &[f64]) -> Complex {
     let n = x.len();
-    let mut buf: Vec<Complex64> = x.iter().map(|&v| Complex64::new(v, 0.0)).collect();
-    let mut planner = FftPlanner::<f64>::new();
-    let plan = planner.plan_fft_forward(n);
-    plan.process(&mut buf);
-    let re = buf.iter().map(|c| c.re).collect();
-    let im = buf.iter().map(|c| c.im).collect();
+    let mut re = vec![0.0; n];
+    let mut im = vec![0.0; n];
+    for k in 0..n {
+        let mut sr = 0.0;
+        let mut si = 0.0;
+        for j in 0..n {
+            let ang = -TAU * (k as f64) * (j as f64) / (n as f64);
+            let (s, c) = ang.sin_cos();
+            sr += x[j] * c;
+            si += x[j] * s;
+        }
+        re[k] = sr;
+        im[k] = si;
+    }
     Complex { re, im }
 }
 
 /// Inverse DFT, normalized by 1/N, returning the real part. Circular
 /// convolution/correlation of real signals always yields a real result up to
 /// floating-point noise, so the imaginary part is discarded (checked in
-/// debug builds).
+/// debug builds). Hand-rolled O(d^2) (no FFT crate).
+#[allow(clippy::needless_range_loop)]
 pub fn ifft(x: &Complex) -> Vec<f64> {
-    let n = x.len();
-    let mut buf: Vec<Complex64> =
-        x.re.iter()
-            .zip(x.im.iter())
-            .map(|(&r, &i)| Complex64::new(r, i))
-            .collect();
-    let mut planner = FftPlanner::<f64>::new();
-    let plan = planner.plan_fft_inverse(n);
-    plan.process(&mut buf);
+    let n = x.re.len();
     let scale = 1.0 / (n as f64);
-
+    let mut out = vec![0.0; n];
     #[cfg(debug_assertions)]
-    {
-        let max_im: f64 = buf.iter().map(|c| (c.im * scale).abs()).fold(0.0, f64::max);
-        debug_assert!(
-            max_im < 1e-6,
-            "ifft: non-negligible imaginary residue ({max_im}); caller passed a \
-             spectrum that isn't the transform of a real circular conv/corr"
-        );
+    let mut max_im = 0.0_f64;
+    for j in 0..n {
+        let mut sr = 0.0;
+        let mut si = 0.0;
+        for k in 0..n {
+            let ang = TAU * (k as f64) * (j as f64) / (n as f64);
+            let (s, c) = ang.sin_cos();
+            // (Xr + i Xi)(c + i s) = (Xr c - Xi s) + i(Xr s + Xi c)
+            sr += x.re[k] * c - x.im[k] * s;
+            si += x.re[k] * s + x.im[k] * c;
+        }
+        out[j] = sr * scale;
+        #[cfg(debug_assertions)]
+        {
+            max_im = max_im.max((si * scale).abs());
+        }
     }
-
-    buf.iter().map(|c| c.re * scale).collect()
+    #[cfg(debug_assertions)]
+    debug_assert!(
+        max_im < 1e-6,
+        "ifft: non-negligible imaginary residue ({max_im}); caller passed a \
+         spectrum that isn't the transform of a real circular conv/corr"
+    );
+    out
 }
 
 /// Frequency-domain binding: ifft(fft(a) ⊙ fft(b)). Equal to `circular_conv`
-/// (Proposition 0) but O(d log d) instead of O(d^2); this is the fast path
-/// used everywhere else in the model.
+/// (Proposition 0). An independent DFT-domain computation from the direct
+/// `circular_conv`, so their equality is a real cross-check.
 pub fn bind_freq(a: &[f64], b: &[f64]) -> Vec<f64> {
     assert_eq!(a.len(), b.len(), "bind_freq requires equal-length inputs");
     let spectrum = fft(a).mul(&fft(b));

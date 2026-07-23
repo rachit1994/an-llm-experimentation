@@ -10,5 +10,11 @@
 //! within 0.02 — proving the fixture's own target is correct.
 #![allow(dead_code)]
 
-pub mod synth;
 pub mod splits;
+pub mod synth;
+
+// Re-export public types and functions
+pub use splits::load_split;
+pub use synth::{
+    synth_concepts, synth_markov, write_truth_json, ConceptItem, ConceptTruth, MarkovTruth,
+};

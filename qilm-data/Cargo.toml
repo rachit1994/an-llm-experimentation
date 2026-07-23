@@ -6,7 +6,11 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# TODO(Phase 0, Haiku): rand, rand_chacha (seedable), sha2, serde, serde_json.
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+sha2 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
-# TODO: approx.
+approx = { workspace = true }
