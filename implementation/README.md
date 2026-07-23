@@ -19,7 +19,14 @@ negative-control battery (tests that must go *red* on broken code), and the muta
 suite isn't vacuous). It exists to defeat the specific failure "all tests green, science still broken."
 [`tests/`](tests/README.md) turns it into **per-phase task cards** an implementing agent (Sonnet/Haiku)
 executes top-to-bottom — each card names the file, the signature, the test that defines done, and the
-negative control that must stay red. **No phase's numbers are believed until its Definition-of-Done
+negative control that must stay red.
+
+**Before implementing any standard component, read [`PRIOR-ART-AND-REUSE.md`](PRIOR-ART-AND-REUSE.md)** —
+the reference implementation for each primitive (torchhd, hopfield-layers, VICReg, expRNN, torchmetrics),
+what to borrow (algorithm + default hyperparameters + test vectors), and the **minimal-dependency
+policy** (the whole core budget is `rand`/`serde`/`sha2`; no DL framework without sign-off). We port
+references and spend effort on the integration + verification; we do not reinvent primitives or add
+dependency hell. **No phase's numbers are believed until its Definition-of-Done
 (VERIFICATION §8) is green: unit tests + negative controls + a known-answer end-to-end that reaches a
 target computed from the data, not the model.**
 

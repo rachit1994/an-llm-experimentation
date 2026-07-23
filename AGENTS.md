@@ -68,6 +68,20 @@ easily violated while everything looks green.
 10. **If a number feels like a judgment call, your task card is under-specified — escalate, do not
     invent.** Ask the lead (report the ambiguity); never paper over it with a plausible-looking value.
 
+11. **Reuse the reference, do not reinvent (and do not depend on it).** Before implementing a standard
+    component, read its row in [`implementation/PRIOR-ART-AND-REUSE.md`](implementation/PRIOR-ART-AND-REUSE.md);
+    port the algorithm, the default hyperparameters, and — where possible — the reference's **test
+    vectors** (VICReg loss on a fixed batch, ECE matching torchmetrics, bind/unbind properties from
+    torchhd). Do not re-derive a standard algorithm from scratch, and do not add a framework dependency
+    to get it. The novelty here is the *intersection and the engineering*, not the primitives.
+
+12. **Minimal dependencies — a reviewer must survive `cargo tree`.** The entire core budget is
+    `rand`+`rand_chacha`, `serde`+`serde_json`, `sha2`, and `proptest` (dev-only). Any new crate must be
+    justified in the commit against that budget. **No DL framework** (`burn`/`candle`/`tch`/`dfdx`) for
+    headline numbers without lead sign-off; prefer a small hand-rolled implementation (e.g. the
+    ~400-line autodiff tape for Phase 1) over a heavy dependency. Prefer a hand-rolled `O(d²)` DFT for
+    tests over pulling an FFT crate. Fewer deps = fewer pins = reproducibility (C4) and no dependency hell.
+
 ---
 
 ## Mandatory pre-report self-review (answer every line before you say "done")
@@ -81,6 +95,8 @@ Copy this into your final report with each box checked or explicitly explained:
 - [ ] I typed **no measured numbers** into any Markdown file; results come from `report` (Rule 5).
 - [ ] I did **not** weaken any threshold, tolerance, or test to pass; `gates.toml` is untouched (Rule 6).
 - [ ] Same seed → **bit-identical** output (Rule 8).
+- [ ] I consulted the **reference** for each standard component and ported its test vectors where possible (Rule 11).
+- [ ] I added **no new dependency** beyond the justified budget; no DL framework without sign-off (Rule 12).
 - [ ] I report the **real** `cargo test` summary and every RED/incomplete item, with reasons (Rule 7).
 
 An agent that reports "done" without this checklist has not finished.
