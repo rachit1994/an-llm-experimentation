@@ -19,8 +19,16 @@ use rustfft::{num_complex::Complex64, FftPlanner};
 /// (a ★ b)[n] = sum_{k=0}^{d-1} a[k] * b[(n-k) mod d].
 /// Used only as the independent reference side of Proposition 0 — never as
 /// the fast path (that's `bind`/`bind_freq`).
+///
+/// Indices are modular (`(n - k) mod d`), so the double loop is written with
+/// explicit indices rather than iterator adaptors.
+#[allow(clippy::needless_range_loop)]
 pub fn circular_conv(a: &[f64], b: &[f64]) -> Vec<f64> {
-    assert_eq!(a.len(), b.len(), "circular_conv requires equal-length inputs");
+    assert_eq!(
+        a.len(),
+        b.len(),
+        "circular_conv requires equal-length inputs"
+    );
     let d = a.len();
     let mut out = vec![0.0; d];
     for n in 0..d {
@@ -54,12 +62,11 @@ pub fn fft(x: &[f64]) -> Complex {
 /// debug builds).
 pub fn ifft(x: &Complex) -> Vec<f64> {
     let n = x.len();
-    let mut buf: Vec<Complex64> = x
-        .re
-        .iter()
-        .zip(x.im.iter())
-        .map(|(&r, &i)| Complex64::new(r, i))
-        .collect();
+    let mut buf: Vec<Complex64> =
+        x.re.iter()
+            .zip(x.im.iter())
+            .map(|(&r, &i)| Complex64::new(r, i))
+            .collect();
     let mut planner = FftPlanner::<f64>::new();
     let plan = planner.plan_fft_inverse(n);
     plan.process(&mut buf);

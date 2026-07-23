@@ -28,12 +28,18 @@ impl Complex {
 
     /// All-zero complex vector of length `n`.
     pub fn zeros(n: usize) -> Self {
-        Self { re: vec![0.0; n], im: vec![0.0; n] }
+        Self {
+            re: vec![0.0; n],
+            im: vec![0.0; n],
+        }
     }
 
     /// A real-valued vector lifted into Complex (im = 0).
     pub fn from_real(re: &[f64]) -> Self {
-        Self { re: re.to_vec(), im: vec![0.0; re.len()] }
+        Self {
+            re: re.to_vec(),
+            im: vec![0.0; re.len()],
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -76,17 +82,27 @@ impl Complex {
 
     /// Complex conjugate: conj(a+bi) = a-bi.
     pub fn conj(&self) -> Self {
-        Self { re: self.re.clone(), im: self.im.iter().map(|b| -b).collect() }
+        Self {
+            re: self.re.clone(),
+            im: self.im.iter().map(|b| -b).collect(),
+        }
     }
 
     /// Scale by a real scalar.
     pub fn scale(&self, s: f64) -> Self {
-        Self { re: self.re.iter().map(|a| a * s).collect(), im: self.im.iter().map(|b| b * s).collect() }
+        Self {
+            re: self.re.iter().map(|a| a * s).collect(),
+            im: self.im.iter().map(|b| b * s).collect(),
+        }
     }
 
     /// Elementwise squared magnitude: |a+bi|^2 = a^2 + b^2 (the Born weight).
     pub fn abs2(&self) -> Vec<f64> {
-        self.re.iter().zip(&self.im).map(|(a, b)| a * a + b * b).collect()
+        self.re
+            .iter()
+            .zip(&self.im)
+            .map(|(a, b)| a * a + b * b)
+            .collect()
     }
 
     /// Elementwise magnitude.

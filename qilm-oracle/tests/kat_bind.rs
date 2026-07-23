@@ -35,7 +35,7 @@ fn flat_spectrum_vec(rng: &mut ChaCha8Rng, d: usize) -> Vec<f64> {
     // DC and (if d even) Nyquist bins must be real to keep the spectrum
     // conjugate-symmetric; give them a random sign to keep them non-trivial.
     re[0] = if rng.random::<bool>() { 1.0 } else { -1.0 };
-    if d % 2 == 0 {
+    if d.is_multiple_of(2) {
         re[d / 2] = if rng.random::<bool>() { 1.0 } else { -1.0 };
     }
     let half = d / 2;
@@ -111,7 +111,10 @@ fn kat_unbind() {
     let recovered = unbind(&bound, &b);
 
     let cos = cosine(&recovered, &a);
-    assert!(cos >= 0.98, "cosine(unbind(bind(a,b),b), a) = {cos}, need >= 0.98");
+    assert!(
+        cos >= 0.98,
+        "cosine(unbind(bind(a,b),b), a) = {cos}, need >= 0.98"
+    );
 }
 
 /// Kills-mutant: dropping the conjugate in `unbind` breaks recovery. Directly
@@ -129,7 +132,10 @@ fn kat_unbind_needs_conjugate() {
     // Correct: with conjugate.
     let recovered = unbind(&bound, &b);
     let cos_correct = cosine(&recovered, &a);
-    assert!(cos_correct >= 0.98, "cosine (correct, with conjugate) = {cos_correct}");
+    assert!(
+        cos_correct >= 0.98,
+        "cosine (correct, with conjugate) = {cos_correct}"
+    );
 
     // Broken: without conjugate (manually reproduce the mutant here, since
     // this catalog mutant is about deleting a conjugate call inside unbind).

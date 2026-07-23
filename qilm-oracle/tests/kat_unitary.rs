@@ -1,8 +1,8 @@
 //! T0.5 — Unitary layer (Cayley + Givens) KATs and property test.
 
+use proptest::prelude::*;
 use qilm_core::complex::Complex;
 use qilm_core::unitary::{cayley, givens, skew_hermitian_part, ComplexMat};
-use proptest::prelude::*;
 use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -10,7 +10,12 @@ fn random_complex_mat(rng: &mut ChaCha8Rng, d: usize) -> ComplexMat {
     let mut m = ComplexMat::zeros(d);
     for i in 0..d {
         for j in 0..d {
-            m.set(i, j, rng.random_range(-1.0..1.0), rng.random_range(-1.0..1.0));
+            m.set(
+                i,
+                j,
+                rng.random_range(-1.0..1.0),
+                rng.random_range(-1.0..1.0),
+            );
         }
     }
     m
@@ -85,7 +90,9 @@ fn kat_unitary_norm() {
     let raw = random_complex_mat(&mut rng, d);
     let u_cayley = cayley(&skew_hermitian_part(&raw));
 
-    let angles: Vec<f64> = (0..d - 1).map(|_| rng.random_range(0.0..std::f64::consts::TAU)).collect();
+    let angles: Vec<f64> = (0..d - 1)
+        .map(|_| rng.random_range(0.0..std::f64::consts::TAU))
+        .collect();
     let u_givens = givens(&angles, d);
 
     for (name, u) in [("cayley", &u_cayley), ("givens", &u_givens)] {

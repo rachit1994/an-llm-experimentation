@@ -50,8 +50,16 @@ fn kat_complex_mul() {
     let b = Complex::new(vec![4.0], vec![5.0]);
     let c = a.mul(&b);
 
-    assert!((c.re[0] - (-7.0)).abs() < 1e-9, "re = {}, expected -7", c.re[0]);
-    assert!((c.im[0] - 22.0).abs() < 1e-9, "im = {}, expected 22", c.im[0]);
+    assert!(
+        (c.re[0] - (-7.0)).abs() < 1e-9,
+        "re = {}, expected -7",
+        c.re[0]
+    );
+    assert!(
+        (c.im[0] - 22.0).abs() < 1e-9,
+        "im = {}, expected 22",
+        c.im[0]
+    );
 }
 
 /// kat_complex_conj_abs2 — conj(z) has the same |z|^2 as z, and z * conj(z) has

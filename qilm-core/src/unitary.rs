@@ -26,7 +26,11 @@ pub struct ComplexMat {
 
 impl ComplexMat {
     pub fn zeros(d: usize) -> Self {
-        Self { re: vec![0.0; d * d], im: vec![0.0; d * d], d }
+        Self {
+            re: vec![0.0; d * d],
+            im: vec![0.0; d * d],
+            d,
+        }
     }
 
     pub fn identity(d: usize) -> Self {
@@ -61,7 +65,11 @@ impl ComplexMat {
     }
 
     pub fn scale(&self, s: f64) -> Self {
-        Self { re: self.re.iter().map(|a| a * s).collect(), im: self.im.iter().map(|a| a * s).collect(), d: self.d }
+        Self {
+            re: self.re.iter().map(|a| a * s).collect(),
+            im: self.im.iter().map(|a| a * s).collect(),
+            d: self.d,
+        }
     }
 
     /// Conjugate transpose (Hermitian adjoint) M^†.
@@ -91,7 +99,12 @@ impl ComplexMat {
                 for j in 0..d {
                     let (b_re, b_im) = o.get(k, j);
                     let (o_re, o_im) = out.get(i, j);
-                    out.set(i, j, o_re + a_re * b_re - a_im * b_im, o_im + a_re * b_im + a_im * b_re);
+                    out.set(
+                        i,
+                        j,
+                        o_re + a_re * b_re - a_im * b_im,
+                        o_im + a_re * b_im + a_im * b_re,
+                    );
                 }
             }
         }
@@ -146,7 +159,10 @@ impl ComplexMat {
                     pivot_row = r;
                 }
             }
-            assert!(best > 1e-12, "ComplexMat::inverse: matrix is singular or near-singular");
+            assert!(
+                best > 1e-12,
+                "ComplexMat::inverse: matrix is singular or near-singular"
+            );
             if pivot_row != col {
                 a.swap_rows(col, pivot_row);
                 inv.swap_rows(col, pivot_row);
@@ -156,9 +172,19 @@ impl ComplexMat {
             let denom = pre * pre + pim * pim;
             for j in 0..d {
                 let (are, aim) = a.get(col, j);
-                a.set(col, j, (are * pre + aim * pim) / denom, (aim * pre - are * pim) / denom);
+                a.set(
+                    col,
+                    j,
+                    (are * pre + aim * pim) / denom,
+                    (aim * pre - are * pim) / denom,
+                );
                 let (ire, iim) = inv.get(col, j);
-                inv.set(col, j, (ire * pre + iim * pim) / denom, (iim * pre - ire * pim) / denom);
+                inv.set(
+                    col,
+                    j,
+                    (ire * pre + iim * pim) / denom,
+                    (iim * pre - ire * pim) / denom,
+                );
             }
 
             for r in 0..d {
@@ -172,11 +198,21 @@ impl ComplexMat {
                 for j in 0..d {
                     let (are, aim) = a.get(col, j);
                     let (rre, rim) = a.get(r, j);
-                    a.set(r, j, rre - (fre * are - fim * aim), rim - (fre * aim + fim * are));
+                    a.set(
+                        r,
+                        j,
+                        rre - (fre * are - fim * aim),
+                        rim - (fre * aim + fim * are),
+                    );
 
                     let (aire, aiim) = inv.get(col, j);
                     let (rire, riim) = inv.get(r, j);
-                    inv.set(r, j, rire - (fre * aire - fim * aiim), riim - (fre * aiim + fim * aire));
+                    inv.set(
+                        r,
+                        j,
+                        rire - (fre * aire - fim * aiim),
+                        riim - (fre * aiim + fim * aire),
+                    );
                 }
             }
         }
@@ -208,7 +244,11 @@ pub fn cayley(a_skew: &ComplexMat) -> ComplexMat {
 /// where G_i rotates the (i, i+1) coordinate plane by `angles[i]`. Requires
 /// `angles.len() == d - 1`.
 pub fn givens(angles: &[f64], d: usize) -> ComplexMat {
-    assert_eq!(angles.len(), d.saturating_sub(1), "givens: need exactly d-1 angles for one sweep");
+    assert_eq!(
+        angles.len(),
+        d.saturating_sub(1),
+        "givens: need exactly d-1 angles for one sweep"
+    );
     let mut u = ComplexMat::identity(d);
     for (i, &theta) in angles.iter().enumerate() {
         let (c, s) = (theta.cos(), theta.sin());

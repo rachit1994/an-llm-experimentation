@@ -27,7 +27,10 @@ fn kat_born_sum() {
     let probs = born(&psi, &measurements);
     assert_eq!(probs.len(), 256);
     let sum: f64 = probs.iter().sum();
-    assert!((sum - 1.0).abs() < 1e-6, "sum of Born probabilities = {sum}, expected 1.0");
+    assert!(
+        (sum - 1.0).abs() < 1e-6,
+        "sum of Born probabilities = {sum}, expected 1.0"
+    );
     for p in &probs {
         assert!(*p >= 0.0, "Born probability must be nonnegative, got {p}");
     }

@@ -129,14 +129,13 @@ fn analytic_grad(theta: &[f64]) -> Vec<f64> {
 
 #[test]
 fn gradcheck_givens() {
-    let cases: Vec<Vec<f64>> = vec![
-        vec![0.3, -0.8],
-        vec![1.2, 2.5],
-        vec![-0.6, 0.05],
-    ];
+    let cases: Vec<Vec<f64>> = vec![vec![0.3, -0.8], vec![1.2, 2.5], vec![-0.6, 0.05]];
     for theta in cases {
         let max_rel = gradcheck(loss, analytic_grad, &theta, 1e-4);
-        assert!(max_rel < 1e-4, "gradcheck_givens: max relative error {max_rel} >= 1e-4 for theta {theta:?}");
+        assert!(
+            max_rel < 1e-4,
+            "gradcheck_givens: max relative error {max_rel} >= 1e-4 for theta {theta:?}"
+        );
     }
 }
 
@@ -158,7 +157,17 @@ fn gradcheck_givens_oracle_matches_kernel() {
     let out = u_kernel.apply(&psi);
 
     for i in 0..3 {
-        assert!((out.re[i] - f_re_oracle[i]).abs() < 1e-9, "re[{i}]: kernel={} oracle={}", out.re[i], f_re_oracle[i]);
-        assert!((out.im[i] - f_im_oracle[i]).abs() < 1e-9, "im[{i}]: kernel={} oracle={}", out.im[i], f_im_oracle[i]);
+        assert!(
+            (out.re[i] - f_re_oracle[i]).abs() < 1e-9,
+            "re[{i}]: kernel={} oracle={}",
+            out.re[i],
+            f_re_oracle[i]
+        );
+        assert!(
+            (out.im[i] - f_im_oracle[i]).abs() < 1e-9,
+            "im[{i}]: kernel={} oracle={}",
+            out.im[i],
+            f_im_oracle[i]
+        );
     }
 }

@@ -11,7 +11,10 @@ use crate::complex::Complex;
 /// or if the total (unnormalized) weight is zero (a degenerate/undefined
 /// distribution, not a silently-wrong one).
 pub fn born(psi: &Complex, measurements: &[Complex]) -> Vec<f64> {
-    assert!(!measurements.is_empty(), "born: need at least one measurement vector");
+    assert!(
+        !measurements.is_empty(),
+        "born: need at least one measurement vector"
+    );
 
     let raw: Vec<f64> = measurements
         .iter()
@@ -22,7 +25,10 @@ pub fn born(psi: &Complex, measurements: &[Complex]) -> Vec<f64> {
         .collect();
 
     let sum: f64 = raw.iter().sum();
-    assert!(sum > 0.0, "born: total measurement weight is zero (degenerate state/measurements)");
+    assert!(
+        sum > 0.0,
+        "born: total measurement weight is zero (degenerate state/measurements)"
+    );
 
     raw.iter().map(|p| p / sum).collect()
 }

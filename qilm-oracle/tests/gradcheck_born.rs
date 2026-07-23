@@ -87,7 +87,10 @@ fn gradcheck_born() {
     ];
     for theta in cases {
         let max_rel = gradcheck(loss, analytic_grad, &theta, 1e-4);
-        assert!(max_rel < 1e-4, "gradcheck_born: max relative error {max_rel} >= 1e-4 for theta {theta:?}");
+        assert!(
+            max_rel < 1e-4,
+            "gradcheck_born: max relative error {max_rel} >= 1e-4 for theta {theta:?}"
+        );
     }
 }
 
