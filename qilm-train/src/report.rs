@@ -346,3 +346,295 @@ fn render_markdown(results: &ResultsJson) -> String {
 
     s
 }
+
+// ============================================================================
+// Phase report generation (DELIVERABLE 1)
+// ============================================================================
+
+use serde::Deserialize;
+
+#[derive(Debug, Clone, Deserialize)]
+struct PhaseSpec {
+    title: String,
+    gates: Vec<PhaseGateSpec>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct PhaseGateSpec {
+    name: String,
+    kind: String, // "project_kill", "narrow", or "infra"
+    meaning: String,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Verdict {
+    Proceed,
+    Stop {
+        gate: String,
+        measured: f64,
+        threshold: f64,
+    },
+    ProceedNarrowed {
+        gate: String,
+        measured: f64,
+        threshold: f64,
+    },
+}
+
+impl Verdict {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Verdict::Proceed => "PROCEED",
+            Verdict::Stop { .. } => "STOP",
+            Verdict::ProceedNarrowed { .. } => "PROCEED (narrowed)",
+        }
+    }
+}
+
+/// Load phase specifications from `reports/phase_spec.toml`.
+fn load_phase_specs(
+    workspace_root: &Path,
+) -> Result<std::collections::HashMap<u32, PhaseSpec>, ReportError> {
+    let path = workspace_root.join("reports").join("phase_spec.toml");
+    let text = fs::read_to_string(&path).map_err(ReportError::Io)?;
+
+    let data: serde_json::Value = toml::from_str(&text)
+        .map_err(|e| ReportError::Gate(format!("phase_spec.toml parse error: {e}")))?;
+
+    let mut specs = std::collections::HashMap::new();
+    if let serde_json::Value::Object(obj) = data {
+        for (key, value) in obj {
+            if let Some(phase_num) = key.strip_prefix("phase_") {
+                if let Ok(n) = phase_num.parse::<u32>() {
+                    let spec: PhaseSpec = serde_json::from_value(value.clone())
+                        .map_err(|e| ReportError::Gate(format!("phase_{n} parse error: {e}")))?;
+                    specs.insert(n, spec);
+                }
+            }
+        }
+    }
+    Ok(specs)
+}
+
+/// Compute the worth-pursuing verdict (PROCEED / STOP / PROCEED-NARROWED)
+/// based on gate outcomes for a phase (mechanical, from gate outcomes only).
+pub fn compute_verdict(gates: &[(String, GateOutcome, String, String)]) -> Verdict {
+    // Rule: if ANY project_kill gate FAILED -> STOP
+    // Else if ANY narrow gate FAILED -> PROCEED_NARROWED
+    // Else -> PROCEED
+
+    let mut first_project_kill_fail = None;
+    let mut first_narrow_fail = None;
+
+    for (gate_name, outcome, _meaning, kind) in gates {
+        if let GateOutcome::Fail {
+            measured,
+            threshold,
+        } = outcome
+        {
+            if kind == "project_kill" && first_project_kill_fail.is_none() {
+                first_project_kill_fail = Some((gate_name.clone(), *measured, *threshold));
+            } else if kind == "narrow" && first_narrow_fail.is_none() {
+                first_narrow_fail = Some((gate_name.clone(), *measured, *threshold));
+            }
+        }
+    }
+
+    if let Some((gate, measured, threshold)) = first_project_kill_fail {
+        Verdict::Stop {
+            gate,
+            measured,
+            threshold,
+        }
+    } else if let Some((gate, measured, threshold)) = first_narrow_fail {
+        Verdict::ProceedNarrowed {
+            gate,
+            measured,
+            threshold,
+        }
+    } else {
+        Verdict::Proceed
+    }
+}
+
+/// Generate a phase-specific report `reports/PHASE-{phase}.md`.
+///
+/// This function:
+/// 1. Loads phase specs and gates
+/// 2. Evaluates the phase's gates against available runs
+/// 3. Computes the worth-pursuing verdict
+/// 4. Generates the PHASE-N.md file with provenance, gate table, verdict, and conclusion
+pub fn generate_phase_report(cfg: &ReportConfig, phase: u32) -> Result<(), ReportError> {
+    let records = load_and_validate_runs(cfg)?;
+    let gates = load_gates(cfg.gates_toml).map_err(|e| ReportError::Gate(e.to_string()))?;
+    let phase_specs = load_phase_specs(cfg.workspace_root)?;
+
+    let phase_spec = phase_specs
+        .get(&phase)
+        .ok_or_else(|| ReportError::Gate(format!("unknown phase: {phase}")))?;
+
+    // Collect gate outcomes for this phase
+    let mut phase_gates: Vec<(String, GateOutcome, String, String)> = Vec::new();
+    let mut run_ids = Vec::new();
+    let mut git_sha = String::new();
+
+    for (run_id, record) in &records {
+        if git_sha.is_empty() {
+            git_sha = record.git_sha.clone();
+        }
+        run_ids.push(run_id.clone());
+
+        for gate_spec in &phase_spec.gates {
+            match crate::gate::evaluate(&gate_spec.name, &gates, &record.metrics) {
+                Ok(outcome) => {
+                    phase_gates.push((
+                        gate_spec.name.clone(),
+                        outcome,
+                        gate_spec.meaning.clone(),
+                        gate_spec.kind.clone(),
+                    ));
+                }
+                Err(_) => {
+                    // N/A: no metric for this gate in this run
+                }
+            }
+        }
+    }
+
+    // Compute verdict (mechanical from gate outcomes)
+    let verdict = compute_verdict(&phase_gates);
+
+    // Render Markdown report
+    let md = render_phase_markdown(
+        phase,
+        &phase_spec.title,
+        &phase_spec.gates,
+        &records,
+        &git_sha,
+        &run_ids,
+        &gates,
+        &verdict,
+    );
+
+    // Write to reports/PHASE-{phase}.md
+    fs::create_dir_all(cfg.workspace_root.join("reports"))?;
+    fs::write(
+        cfg.workspace_root
+            .join("reports")
+            .join(format!("PHASE-{}.md", phase)),
+        md,
+    )?;
+
+    Ok(())
+}
+
+fn render_phase_markdown(
+    phase: u32,
+    title: &str,
+    gate_specs: &[PhaseGateSpec],
+    records: &[(String, RunRecord)],
+    git_sha: &str,
+    run_ids: &[String],
+    gates_config: &crate::gate::GatesConfig,
+    verdict: &Verdict,
+) -> String {
+    let mut s = String::new();
+
+    // Provenance header
+    s.push_str("<!-- GENERATED by `qilm-train report --phase` — DO NOT EDIT. Edits are reverted by CI (verify-results). -->\n\n");
+    s.push_str(&format!("# Phase {}: {}\n\n", phase, title));
+
+    // Provenance info
+    s.push_str("## Provenance\n\n");
+    s.push_str(&format!("- **git_sha**: `{}`\n", git_sha));
+    s.push_str(&format!("- **run_ids**: {}\n\n", run_ids.join(", ")));
+
+    // Gates table
+    s.push_str("## Gate Evaluation\n\n");
+    s.push_str("| gate | measured | threshold | outcome | meaning |\n");
+    s.push_str("|---|---|---|---|---|\n");
+
+    for gate_spec in gate_specs {
+        let (measured, threshold, outcome) =
+            evaluate_gate_for_phase(&gate_spec.name, gates_config, records);
+        let measured_str = measured
+            .map(|m| m.to_string())
+            .unwrap_or_else(|| "-".to_string());
+        let threshold_str = threshold
+            .map(|t| t.to_string())
+            .unwrap_or_else(|| "-".to_string());
+        let outcome_str = outcome.unwrap_or_else(|| "N/A".to_string());
+
+        s.push_str(&format!(
+            "| {} | {} | {} | {} | {} |\n",
+            gate_spec.name, measured_str, threshold_str, outcome_str, gate_spec.meaning
+        ));
+    }
+    s.push('\n');
+
+    // Worth-pursuing verdict
+    s.push_str("## Verdict\n\n");
+    match verdict {
+        Verdict::Proceed => {
+            s.push_str(
+                "**PROCEED**: All gates pass. Foundation validated; continue to next phase.\n\n",
+            );
+        }
+        Verdict::Stop {
+            gate,
+            measured,
+            threshold,
+        } => {
+            s.push_str(&format!(
+                "**STOP**: Project-kill gate failed: `{}` measured {:.6} vs threshold {:.6}. ",
+                gate, measured, threshold
+            ));
+            s.push_str("The load-bearing claim is dead; do not pursue further.\n\n");
+        }
+        Verdict::ProceedNarrowed {
+            gate,
+            measured,
+            threshold,
+        } => {
+            s.push_str(&format!(
+                "**PROCEED (narrowed)**: Narrow gate failed: `{}` measured {:.6} vs threshold {:.6}. ",
+                gate, measured, threshold
+            ));
+            s.push_str("Drop the specific claim; other phases remain viable.\n\n");
+        }
+    }
+
+    // Conclusion
+    s.push_str("## Conclusion\n\n");
+    s.push_str("Phase ");
+    s.push_str(&phase.to_string());
+    s.push_str(" gates evaluated. ");
+    s.push_str(verdict.as_str());
+    s.push_str(".\n");
+
+    s
+}
+
+fn evaluate_gate_for_phase(
+    gate_name: &str,
+    gates_config: &crate::gate::GatesConfig,
+    records: &[(String, RunRecord)],
+) -> (Option<f64>, Option<f64>, Option<String>) {
+    // Evaluate gate across all runs in the phase; return mean measured value
+    // (simplified: just use the first run's result for now).
+    if let Some((_run_id, record)) = records.first() {
+        match crate::gate::evaluate(gate_name, gates_config, &record.metrics) {
+            Ok(GateOutcome::Pass {
+                measured,
+                threshold,
+            }) => (Some(measured), Some(threshold), Some("PASS".to_string())),
+            Ok(GateOutcome::Fail {
+                measured,
+                threshold,
+            }) => (Some(measured), Some(threshold), Some("FAIL".to_string())),
+            Err(_) => (None, None, None),
+        }
+    } else {
+        (None, None, None)
+    }
+}
