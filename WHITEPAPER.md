@@ -1,9 +1,9 @@
-# Amplitude Language Models
+# Convergent Concept Representations
 
-### A Classical Quantum-Formalism Architecture for Pattern-Predictive Language Modeling: Theory, Capacity Bounds, and a Falsifiable Research Program
+### A Learned, From-Scratch Vector-Symbolic Encoder with Wave-Domain Binding and Calibrated Confidence: Theory, Capacity Bounds, and a Falsifiable Research Program
 
 **Author:** Rachit Srivastava¹
-**¹** Independent Research. *Author and affiliation are placeholders for review and may be updated prior to publication.*
+**¹** Independent Research. *Author, affiliation, and the working title "Convergent Concept Representations" are placeholders for review and may be updated prior to publication.*
 
 **Correspondence:** rachit.srivastava1994@gmail.com
 **Version:** 1.0 · **Status:** Working paper (pre-review) · **Compute target:** Apple M1 (classical CPU/GPU)
@@ -12,9 +12,9 @@
 
 ## Abstract
 
-We present the theory and a falsifiable research program for **Amplitude Language Models (ALMs)**: language models in which the unit of representation is a **complex probability amplitude** (magnitude and phase), units compose by **wave interference**, evolve by **unitary** maps, and are read out by the **Born rule**, while the predictive objective operates on **distributed activation patterns** ("pattern-as-token") rather than discrete vocabulary symbols. Every component is realized in **classical** complex linear algebra; we argue quantitatively that a fault-tolerant quantum computer is not merely unnecessary but *strictly disadvantageous* for this problem, invoking barren plateaus ($\mathrm{Var}[\partial_\theta L]\sim 2^{-\alpha n}$), dequantization, and the recently formalized simulability pincer. We contribute: (i) a self-contained derivation of the interference, unitary, and Born-readout algebra, including a proof that unitary evolution on $\mathbb{C}^d$ is structured orthogonal evolution on $\mathbb{R}^{2d}$ and hence trainable by ordinary autodiff; (ii) a formal treatment of the pattern-prediction objective, its representation-collapse failure mode, and three anti-collapse regularizers; (iii) a capacity analysis separating *naming* capacity (combinatorial and Johnson–Lindenstrauss bounds, exponential in dimension) from *storage* capacity (classical Hopfield $0.138N$ vs. modern Hopfield's exponential capacity), resolving an order-of-magnitude fallacy; (iv) a Bayesian–Hebbian "glow" mechanism yielding a calibrated, inspectable confidence signal, with a mandatory stabilization against frequency runaway; and (v) a complete parameter, memory, and FLOP budget demonstrating that all *decision-grade* experiments fit an M1 (a $12.6$M-parameter pattern model with a $\sim 151$ MB training footprint, $2.3\times$ smaller than a parameter-matched token baseline). We close with five pre-registered, individually killable hypotheses. The headline empirical precedent — a single complex-valued layer reaching $90.91\%$/$91.66\%$ on AG News versus $\sim 71.7\%$ for a single Transformer layer [1] — is treated as motivation to be re-established under strict fairness controls, not as a result we inherit.
+Two surface forms of the same concept — a paraphrase, an augmentation, ultimately a different modality — should map to nearly the same internal representation, and a model should be able to *state how sure it is* and *show its work*. We present the theory and a falsifiable research program for a learned, from-scratch encoder (working name **Convergent Concept Representations**, CCR) that maps raw inputs to sparse distributed **concept patterns** stored as **attractors** — so the same concept re-triggers nearly the same pattern — and predicts the *next pattern* in that shared space rather than the next discrete vocabulary symbol. The representational substrate is that of **Vector Symbolic Architectures / Hyperdimensional Computing** (Kanerva; Plate; Smolensky [25,26,27,29]): high-dimensional, near-orthogonal codes combined by three algebraic operations — **bind**, **superpose**, **permute**. Our central mechanistic claim is that the "wave" (complex-amplitude) mathematics is *not a separate device* but the frequency-domain form of vector-symbolic binding: circular-convolution binding, the canonical VSA bind, is elementwise complex multiplication — a magnitude product and a **phase addition** — so a complex-amplitude representation read out by the **Born rule** is a learnable, end-to-end-differentiable realization of VSA binding. We contribute: (i) this binding identity, plus a proof that unitary evolution on $\mathbb{C}^d$ is structured orthogonal evolution on $\mathbb{R}^{2d}$ and hence trainable by ordinary autodiff; (ii) an **invariance objective** (predict the next pattern under a stop-gradient target), its representation-collapse failure mode, and three anti-collapse regularizers; (iii) a capacity analysis separating *naming* capacity (combinatorial and Johnson–Lindenstrauss bounds, exponential in dimension) from *storage* capacity (classical Hopfield $0.138N$ vs. modern Hopfield's exponential capacity), resolving an order-of-magnitude fallacy; (iv) a Bayesian–Hebbian salience ("glow") layer yielding a **calibrated, inspectable confidence** signal, with a mandatory stabilization against frequency runaway; and (v) a complete parameter, memory, and FLOP budget showing every *decision-grade* experiment fits an Apple M1 (a $12.6$M-parameter model, $\sim 151$ MB training footprint, $2.3\times$ smaller than a parameter-matched token baseline). The **testable** headline is *single-modality invariance* — the same concept under paraphrase / augmentation / byte-noise maps to nearly the same pattern — with cross-modal binding ("one pattern for an image, a sentence, or a video") stated as a scaling destination, **not** a demonstrated result. We argue separately, and quantitatively, that a fault-tolerant quantum computer is the *wrong* tool for this workload (barren plateaus $\mathrm{Var}[\partial_\theta L]\sim 2^{-\alpha n}$, dequantization, the simulability pincer), which is precisely why every component runs classically. The empirical precedent — a single complex-valued layer reaching $90.91\%$/$91.66\%$ on AG News versus $\sim 71.7\%$ for a single Transformer layer [1] — is treated as motivation to be re-established under strict fairness controls, not a result we inherit.
 
-**Keywords:** complex-valued neural networks, quantum-inspired language models, Born rule, unitary recurrence, associative memory, modern Hopfield networks, joint-embedding prediction, representation collapse, calibration.
+**Keywords:** vector symbolic architectures, hyperdimensional computing, holographic reduced representations, complex-valued neural networks, modality-invariant representation, associative memory, modern Hopfield networks, representation collapse, calibration.
 
 ---
 
@@ -29,11 +29,13 @@ Contemporary large language models factorize text autoregressively over a fixed 
 
 Neither cost is fundamental to *language*; both are artifacts of choosing the discrete symbol as the unit of prediction.
 
-### 1.2 Thesis
+### 1.2 The problem, and the base we test
 
-We test a different base. Represent each unit as a **complex amplitude** $\alpha = r e^{i\phi}$; the novelty relative to standard networks is **not** continuous magnitude (networks have always been continuous) but the orthogonal degree of freedom of **phase**, which supplies *interference*: two equal-magnitude units can reinforce or cancel depending only on their relative phase. Make the predictive unit the **distributed pattern** a concept evokes, and predict the **next pattern** in a shared latent space, decoding to a word only at emission. Store concepts as **sparse attractors** whose retrieval is a single attention step, and let patterns **brighten** with exposure to yield a **calibrated, inspectable confidence** signal.
+The problem we target is a **stable, surface-form-invariant, inspectable concept representation**: the same concept — under paraphrase, augmentation, noise, and eventually a different modality — should evoke nearly the same **distributed pattern**, that pattern should be a reliable **attractor** (re-triggering the same nodes), and the model should expose a **calibrated confidence** in its retrieval. This is the representational problem underneath grounding, retrieval, cross-modal alignment, and on-device anti-hallucination; it is not specific to language.
 
-Crucially, "quantum" here names the **mathematics** (Hilbert-space states, unitary evolution, Born-rule measurement), executed on classical hardware. §7 argues this is the correct engineering choice on the merits, not a compromise.
+The base we test is that of **Vector Symbolic Architectures (VSA) / Hyperdimensional Computing (HDC)** (Kanerva [27]; Plate [26]; Smolensky [29]; survey [25]): concepts are high-dimensional, near-orthogonal vectors, and structure is built from three algebraic operations — **bind** (associate a role with a filler), **superpose** (form a set), and **permute** (encode order/position). This is *exactly* the intuition that "a fixed but expandable substrate whose nodes and weights combine combinatorially produces stable, reusable patterns" — permutation is a named VSA primitive, not a metaphor. VSA gives us capacity theorems (§5) and a rigorous home; what we add is that the substrate is **learned end-to-end and from scratch** (§C1), stored as **attractors** with modern-Hopfield retrieval (§5.4), predicted with an **invariance objective** (§4), and equipped with a **calibrated confidence** layer (§6).
+
+The role of the **complex-amplitude ("wave") mathematics** is then precise and demoted from identity to mechanism: it is the **frequency-domain implementation of VSA binding** (§3.3). The one representational novelty over a real-valued net is **phase** — the orthogonal degree of freedom that supplies *interference* (two equal-magnitude patterns reinforce or cancel by their relative phase) — and whether phase earns its keep at equal parameters is a single pre-registered ablation (H1, §9), not an assumption. "Quantum" here names only the **mathematics** (Hilbert-space states, unitary maps, Born-rule readout) executed on classical hardware; §7 argues that running classically is the correct engineering choice on the merits, not a compromise.
 
 ### 1.3 Contributions and scope
 
@@ -51,15 +53,19 @@ All experimental commitments obey a purity charter (no pretrained components, ra
 
 **Prediction in latent/continuous space.** *Coconut* [6] feeds a model's last hidden state back as the next input embedding, reasoning in a continuous latent space that can encode multiple next steps and perform an emergent breadth-first search, improving token efficiency on planning-heavy reasoning. *Large Concept Models* [7] predict in a sentence-embedding space (SONAR) and outperform same-size LLMs zero-shot across many languages. LeCun's **JEPA** program predicts *representations* under a stop-gradient/EMA target rather than reconstructing inputs. These motivate pattern-as-token; where they use pretrained embedding spaces (e.g. SONAR) we quarantine those and learn the space from scratch.
 
+**Vector symbolic architectures and distributed binding.** VSA/HDC [25] represents symbols as high-dimensional, near-orthogonal vectors combined by three operations — bind, superpose, permute. The family includes Smolensky's tensor-product representations [29], Plate's **Holographic Reduced Representations** [26] (binding by circular convolution), Gayler's Multiply-Add-Permute, and Kanerva's Sparse Distributed Memory and Binary Spatter Codes [27]. This is the field our substrate lives in, and the frequency-domain view of HRR binding is exactly our complex-amplitude "wave" mechanism (§3.3). The distinction from classical VSA is that its codebooks and binding maps are largely *hand-designed and un-calibrated*; our object is a **learned-from-scratch** VSA-style encoder with attractor storage and a calibrated confidence layer. This is the closest prior-art field to the present work and, to our knowledge, is under-connected to the complex-valued / "wave" language-model line [1,3]; §3.3 makes the connection explicit.
+
+**Modality-invariant and shared-embedding spaces.** CLIP-style contrastive alignment and **ImageBind** [28] demonstrate that many modalities can be bound into a single embedding space, and Large Concept Models [7] that predicting in such a space can beat same-size token LLMs. These rely on strong *pretrained* per-modality encoders; under our no-pretrained charter (C1) the cross-modal version is a stated scaling destination (§10), and the claim we actually test is single-modality invariance.
+
 **Associative memory.** Classical Hopfield networks [8] store $\approx 0.138N$ patterns in $N$ neurons [9]. *Modern* Hopfield networks [10] use a log-sum-exp energy with **exponential** storage capacity in the representation dimension, retrieve in one update, and have an update rule identical to Transformer attention — the bridge that makes "concepts as attractors" computationally cheap (§5).
 
 **Why not quantum hardware.** Barren plateaus [11] show the gradient variance of wide parameterized quantum circuits vanishes exponentially in qubit number. Dequantization [12] shows many claimed QML speedups have classical algorithms only polynomially slower. The one rigorously proven advantage [13] is for a discrete-log-structured dataset in the data-scarce regime. The simulability pincer [14] collects evidence that circuits provably free of barren plateaus are also classically simulable. §7 develops these quantitatively.
 
 ---
 
-## 3. The amplitude representation
+## 3. The representation: distributed patterns and wave-domain binding
 
-We write a state as $\psi \in \mathbb{C}^d$, stored in implementation as a pair of real tensors $(\mathrm{Re}\,\psi, \mathrm{Im}\,\psi)\in\mathbb{R}^d\times\mathbb{R}^d$. The Hermitian inner product is $\langle a\mid b\rangle = \sum_k \overline{a_k}\, b_k$, and $\|\psi\|^2 = \langle\psi\mid\psi\rangle$.
+We write a state as $\psi \in \mathbb{C}^d$, stored in implementation as a pair of real tensors $(\mathrm{Re}\,\psi, \mathrm{Im}\,\psi)\in\mathbb{R}^d\times\mathbb{R}^d$. The Hermitian inner product is $\langle a\mid b\rangle = \sum_k \overline{a_k}\, b_k$, and $\|\psi\|^2 = \langle\psi\mid\psi\rangle$. A *concept pattern* is such a vector; the three VSA operations (§1.2) are superposition (§3.2, addition), binding (§3.3, below), and permutation (a fixed invertible reindexing $P$, $\psi\mapsto P\psi$, used to protect order — omitted from the equations for brevity as it is a special orthogonal map covered by §3.4).
 
 ### 3.1 Amplitudes and the Born rule
 
@@ -105,6 +111,14 @@ $$
 $$
 
 multiplying magnitudes and **adding** phases. Interference is additive superposition (phases can cancel); modulation is a gating/binding operation (phases accumulate). Both are $O(d)$ and both were competitive in [1].
+
+**Proposition 0 (wave modulation is frequency-domain VSA binding).** The canonical VSA *bind* in Holographic Reduced Representations [26] is circular convolution $a\circledast b$. By the circular convolution theorem, the discrete Fourier transform diagonalizes it:
+
+$$
+\mathcal{F}(a\circledast b) = \mathcal{F}(a)\odot\mathcal{F}(b),
+$$
+
+i.e. binding is **elementwise complex multiplication** of the spectra. Writing each spectral coordinate in polar form $\mathcal{F}(a)_k = \rho_k e^{i\theta_k}$, this multiplies magnitudes and **adds phases** — exactly the modulation of §3.3. Two consequences follow. (i) Working *directly* in the amplitude ("wave") domain, our modulation **is** VSA binding; a phase-only (unit-magnitude) state is Plate's *circular* HRR, and the Born-normalized state of §3.1 is its unit-norm case. (ii) Unbinding (querying a bound pair) is the inverse operation, circular correlation, which in the spectral domain is multiplication by the complex **conjugate** — a phase *subtraction*. So bind/unbind, superpose, and permute — the full VSA algebra — are all available as $O(d)$ (or $O(d\log d)$ via FFT) complex operations, and, unlike classical hand-designed VSA, the codebook and the maps here are **learned** (§4) and read out by the Born rule (§3.4–§4). This identity is why the complex mathematics is a *mechanism* for a distributed-binding representation, not a separate thesis: dropping it (the `phase=0` ablation, H1) reduces the model to a real-valued distributed code and asks whether phase-domain binding earned its parameters.
 
 ### 3.4 Unitary evolution and its real form
 
@@ -475,10 +489,10 @@ Apple Metal has only partial complex support. We (i) treat the CPU (NdArray) bac
 | **H1** | complex **phase** carries information a real net cannot recover at equal params | accuracy gap: full-complex vs **phase$=0$** ablation (param-matched) | gap $\le 1\sigma$ of seed noise $\Rightarrow$ **drop "quantum"** |
 | **H2** | next-pattern is competitive with next-token at equal params | val perplexity (fixed decoder) vs param-matched token baseline | pattern $>10\%$ worse **or** collapse $\Rightarrow$ **stop project** |
 | **H3** | pattern prediction does not collapse | effective rank / per-dim variance | $\mathrm{erank}<0.5d$ or variance within $10\times$ constant $\Rightarrow$ **stop** |
-| **H4** | a concept reliably re-triggers its attractor under noise ("bee test") | node-overlap hit-rate, clean vs noisy cue | hit-rate $<\sim90\%$ $\Rightarrow$ narrow to soft retrieval |
+| **H4** | **(headline) invariance** — a concept re-triggers nearly the same pattern across *surface variation*: byte-noise, augmentation, and paraphrase | node-overlap hit-rate, clean cue vs varied cue; overlap monotone in semantic similarity | hit-rate $<\sim90\%$ **or** overlap not monotone $\Rightarrow$ narrow to soft retrieval |
 | **H5** | brightness tracks correctness (calibration) | ECE, glow vs no-glow on held-out | $\mathrm{ECE}(\text{glow})\ge\mathrm{ECE}(\text{no-glow})\Rightarrow$ narrow to salience |
 
-H1 governs the *branding*; H2/H3 govern the *project*; H4/H5 govern the memory and product claims. Each fails to a specific, pre-registered number.
+H4 is the **headline** claim (the invariance/convergence property the encoder is named for); H1 governs whether the *wave/phase* mechanism earns its parameters; H2/H3 govern whether the pattern objective is a viable *project* at all; H5 governs the confidence product. Each fails to a specific, pre-registered number. The stronger, later form of H4 — invariance across *modalities* (the same concept from an image, a sentence, or a video landing on nearly the same pattern) — requires from-scratch multi-modal encoders and is a **scaling destination** (§10), deliberately excluded from the decision-grade claim because it is not demonstrable under C1 on an M1.
 
 ### 9.2 Fairness controls
 
@@ -503,12 +517,14 @@ It does **not** mean a head-to-head against frontier models; that comparison is 
 5. **Capacity bounds are existence/aggregate results.** The JL packing (§5.2) is a loose lower bound; modern-Hopfield capacity [10] depends on pattern separation $\Delta$, and real learned patterns are neither uniform nor maximally separated.
 6. **Calibration can be gamed by evaluation leakage.** ECE on training-distribution data is trivially flattering; H5 is defined on held-out splits precisely to prevent this.
 7. **Small-scale conclusions may not scale.** Nothing here establishes that complex/pattern/unitary structure keeps winning into the billions of parameters; §9.4 confines our claims to the frontier we can measure plus labeled extrapolation.
+8. **We enter a mature, crowded field, so the novelty is narrow by construction.** VSA/HDC is 35 years old [25,26,27,29] and shared-embedding alignment [7,28] is strong; we do not out-scale either. The contribution is precisely the *intersection* nobody occupies: a **learned, from-scratch** (C1) VSA-style encoder whose binding is realized in the wave/frequency domain, whose patterns are **learned attractors**, and which carries a **calibrated, inspectable** confidence signal. If a reviewer reads any one of these axes in isolation, the work looks derivative; the claim lives only in their conjunction, and each axis is individually ablatable (§9.2).
+9. **Cross-modal invariance is asserted, not demonstrated.** The "one pattern for image, text, or video" ambition requires from-scratch per-modality encoders that C1 and the M1 budget do not permit to validate here. Presenting it as a result — rather than as the stated destination beyond single-modality invariance (H4) — would be the exact over-claim this framing exists to avoid.
 
 ---
 
 ## 11. Conclusion
 
-Amplitude Language Models recombine four established but individually promising ideas — complex-amplitude (phase-bearing) representations, pattern-space prediction, attractor memory, and Hebbian–Bayesian salience — into a single classical architecture whose every claim is instrumented and killable. The mathematics is quantum in *form* and classical in *execution*, and we have argued quantitatively that this is the correct choice: a fault-tolerant quantum computer is obstructed by barren plateaus, undercut by dequantization, squeezed by the simulability pincer, and structurally unable to deliver the inspectable full-state readout that is the product. The efficiency argument is concrete — a $2.3\times$ parameter reduction from reclaiming the vocabulary table (§4.4), an associative store whose $\sim 1$ MB is independent of concept count (§5.4), and a training regime that decides every hypothesis on an M1 in a day (§8). The honest boundary is equally concrete: generation at scale is gated behind the readout wall, and the "quantum" branding is contingent on a single pre-registered ablation. The contribution of this paper is not a benchmark victory but a *decidable* research program — five hypotheses, five kill numbers, one machine — that can be run to a definite yes or no.
+The object of this paper is a **learned, from-scratch encoder that maps inputs to stable, surface-invariant, inspectable concept patterns** — the representational problem underneath grounding, retrieval, and on-device anti-hallucination. Its substrate is a named, 35-year-old field, Vector Symbolic Architectures, whose three primitives (bind, superpose, permute) match the intuition of a combinatorial pattern graph exactly; its one mechanistic novelty is that binding is performed in the **wave / frequency domain**, where — by Proposition 0 — circular-convolution binding *is* complex multiplication (phase addition), making the complex-amplitude mathematics a learnable realization of VSA binding rather than a separate thesis. Around that substrate we place an invariance objective with instrumented anti-collapse (§4), a capacity account that distinguishes *naming* from *storage* and resolves a nine-order-of-magnitude fallacy (§5), and a Bayesian–Hebbian calibrated confidence layer (§6). The efficiency and feasibility arguments are concrete — a $2.3\times$ parameter reduction from predicting in a shared pattern space (§4.4), an associative store whose $\sim 1$ MB is independent of concept count (§5.4), and a regime that decides every hypothesis on an M1 in a day (§8). The boundaries are equally concrete and stated as such: the *wave/phase* mechanism is contingent on one pre-registered ablation (H1); generation at scale is gated behind the readout wall (§8.2); and **cross-modal** invariance is a destination, not a result — the testable claim is single-modality invariance (H4). We argue separately that running classically is not a compromise but the correct engineering choice, since a fault-tolerant quantum computer is obstructed by barren plateaus, undercut by dequantization, squeezed by the simulability pincer, and structurally unable to deliver the inspectable full-state readout that is the product (§7). The contribution is not a benchmark victory but a *decidable* research program — five hypotheses, five kill numbers, one machine — that can be run to a definite yes or no.
 
 ---
 
@@ -562,6 +578,16 @@ Amplitude Language Models recombine four established but individually promising 
 
 [24] J. Hoffmann, S. Borgeaud, A. Mensch, et al. **Training Compute-Optimal Large Language Models (Chinchilla).** arXiv:2203.15556, 2022. (Source of the $C\approx6ND$ estimate.)
 
+[25] D. Kleyko, D. A. Rachkovskij, E. Osipov, and A. Rahimi. **A Survey on Hyperdimensional Computing aka Vector Symbolic Architectures, Part I: Models and Data Transformations.** *ACM Computing Surveys* 55(6), Article 130, 2023. doi:10.1145/3538531. (Bind / superpose / permute.)
+
+[26] T. A. Plate. **Holographic Reduced Representations.** *IEEE Transactions on Neural Networks* 6(3):623–641, 1995. (Binding by circular convolution; circular/frequency-domain HRR.)
+
+[27] P. Kanerva. **Hyperdimensional Computing: An Introduction to Computing in Distributed Representation with High-Dimensional Random Vectors.** *Cognitive Computation* 1(2):139–159, 2009. (See also *Sparse Distributed Memory*, MIT Press, 1988.)
+
+[28] R. Girdhar, A. El-Nouby, Z. Liu, M. Singh, K. V. Alwala, A. Joulin, and I. Misra. **ImageBind: One Embedding Space to Bind Them All.** *CVPR* 2023. arXiv:2305.05665.
+
+[29] P. Smolensky. **Tensor product variable binding and the representation of symbolic structures in connectionist systems.** *Artificial Intelligence* 46(1–2):159–216, 1990.
+
 ---
 
 ## Appendix A — Notation
@@ -571,7 +597,9 @@ Amplitude Language Models recombine four established but individually promising 
 | $\psi\in\mathbb{C}^d$ | complex state; stored as $(\mathrm{Re}\,\psi,\mathrm{Im}\,\psi)$ |
 | $\alpha=re^{i\phi}$ | single amplitude: magnitude $r$, phase $\phi$ |
 | $\langle a\mid b\rangle$ | Hermitian inner product $\sum_k\overline{a_k}b_k$ |
-| $\odot$ | Hadamard (element-wise) product |
+| $\odot$ | Hadamard (element-wise) product (= wave-domain **bind**) |
+| $\circledast$ | circular convolution (VSA **bind**; $=\odot$ in the frequency domain, §3.3) |
+| $\mathcal{F},\ P$ | discrete Fourier transform; a fixed permutation (VSA **permute**) |
 | $U,\ H,\ A$ | unitary map; Hermitian generator; (skew-Hermitian) Cayley argument |
 | $z,\hat z$ | target pattern; predicted pattern |
 | $\mathrm{sg}(\cdot)$ | stop-gradient |

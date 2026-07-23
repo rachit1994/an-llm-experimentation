@@ -1,33 +1,48 @@
 # an-llm-experimentation
 
-A **ground-up** language-model experiment. Not a fork of the transformer stack, not a
-wrapper around a pretrained checkpoint, and not a quantum-hardware project. It is a
-disciplined test of a *different base for language modeling*, implemented in **classical**
-complex linear algebra and sized to run on a **Mac Mini M1**.
+A **ground-up** experiment in **learning stable, surface-invariant, inspectable concept
+representations** from scratch. Not a fork of the transformer stack, not a wrapper around a
+pretrained checkpoint, and not a quantum-hardware project. It builds a **learned Vector
+Symbolic Architecture** — a distributed-pattern encoder whose *binding* operation is
+implemented in the **wave / frequency domain** (complex amplitudes) — implemented in
+**classical** linear algebra and sized to run on a **Mac Mini M1**.
 
 The repo is a dossier first and a build ladder second. Every claim below is decomposed into
 an individually falsifiable hypothesis with a *killable number*, and every mechanism is
 switchable so that any reported result is attributable to one cause.
 
+> **Framing note (v2).** An earlier version led with "Amplitude Language Model," which put the
+> *mechanism* (complex/wave math) in the title as if it were the identity. The white paper now
+> leads with the **problem** — a learned, from-scratch encoder that maps inputs to convergent,
+> surface-invariant concept patterns — anchors it in **Vector Symbolic Architectures /
+> Hyperdimensional Computing** (the field this idea actually belongs to; permutation and binding
+> are *named VSA primitives*, not metaphors), and demotes the wave math to what it is: the
+> **frequency-domain form of VSA binding** (`bind = circular convolution = elementwise complex
+> multiplication = phase addition`). The math and every number are unchanged; only the framing is.
+
 ---
 
 ## One-paragraph verdict
 
-Representing each linguistic unit as a **complex probability amplitude** (magnitude + phase),
-composing units by **wave interference**, evolving them with **unitary** maps, and reading them
-out with the **Born rule** is a legitimate, *already-published* direction (Wave Network reaches
-**90.91%**/**91.66%** single-layer on AG News vs a single transformer layer's ~**71–72%**,
-approaching BERT-base's **94.64%**). The genuinely novel legs are (1) **complex phase** as a
-representational degree of freedom that real-valued nets lack, and (2) **pattern-as-token** —
-predicting the *next distributed activation pattern* in a shared latent space rather than the
-next discrete vocabulary symbol. Both are **PROCEED** at small scale on an M1; **generation at
-scale is unproven** and gated behind the Born-readout `O(|V|·d)` wall. A real quantum computer is
-the *wrong* tool here (barren plateaus, dequantization, the simulability pincer), which is exactly
-why the whole thing runs classically. See [`05-feasibility-verdict.md`](docs/05-feasibility-verdict.md).
+The problem worth solving here is a **stable, surface-form-invariant, inspectable concept
+representation**: the same concept — under paraphrase, augmentation, noise, and eventually a
+different modality — should evoke nearly the same **distributed pattern**, that pattern should be
+a reliable **attractor**, and the model should expose a **calibrated confidence**. The substrate
+is **Vector Symbolic Architectures** (bind/superpose/permute over high-dimensional near-orthogonal
+codes); the one mechanistic novelty is that **binding is done in the wave/frequency domain**, where
+circular-convolution binding is exactly elementwise complex multiplication (phase addition) — so the
+"amplitude" math is a *learnable realization of VSA binding*, not a separate thesis. The published
+precedent for the mechanism is strong (Wave Network reaches **90.91%**/**91.66%** single-layer on AG
+News vs a single transformer layer's ~**71–72%**, approaching BERT-base's **94.64%**). The **testable
+headline** is single-modality invariance on an M1; **cross-modal** invariance and **generation at
+scale** are stated destinations, not results (the latter gated behind the Born-readout `O(|V|·d)`
+wall). A real quantum computer is the *wrong* tool here (barren plateaus, dequantization, the
+simulability pincer), which is exactly why the whole thing runs classically. See the
+[white paper](WHITEPAPER.pdf) and [`05-feasibility-verdict.md`](docs/05-feasibility-verdict.md).
 
 ---
 
-## Theory → quantum formalism → classical implementation
+## Theory → wave-domain mechanism → classical implementation
 
 | Theory (plain language) | Quantum formalism | Classical implementation (M1) |
 |---|---|---|
@@ -58,21 +73,22 @@ why the whole thing runs classically. See [`05-feasibility-verdict.md`](docs/05-
 ## Reading order
 
 0. **[`WHITEPAPER.pdf`](WHITEPAPER.pdf)** — the peer-review-grade research paper (theory, derivations, capacity bounds, all calculations, references), typeset with fully rendered math. **Read the PDF, not the `.md`, on mobile**: GitHub's math rendering (`$...$` / `$$...$$`) has never been supported in the iOS/Android apps, so equations show as raw LaTeX source there even though they render correctly on desktop/web. [`WHITEPAPER.md`](WHITEPAPER.md) is the Markdown source (renders with math on github.com desktop; see [`docs/PDF-BUILD.md`](docs/PDF-BUILD.md) to regenerate the PDF after editing it). Start here if you want the rigorous end-to-end argument; the docs below are the working dossier behind it.
-1. [`GROUND-UP-CONSTRAINTS.md`](docs/GROUND-UP-CONSTRAINTS.md) — the charter (C1–C8). **Read this first; it binds everything.**
-2. [`00-hypothesis-decomposed.md`](docs/00-hypothesis-decomposed.md) — the thesis restated, decomposed into H1–H5.
-3. [`01-prior-art-quantum-inspired.md`](docs/01-prior-art-quantum-inspired.md) — the real field, with numbers.
-4. [`02-why-classical-not-a-quantum-computer.md`](docs/02-why-classical-not-a-quantum-computer.md) — why not a QC.
-5. [`03-complex-amplitudes-and-the-band.md`](docs/03-complex-amplitudes-and-the-band.md) — "not 0/1, a band," answered honestly.
-6. [`04-math-and-mechanisms.md`](docs/04-math-and-mechanisms.md) — the implementable equations, each with its cost term.
-7. [`05-feasibility-verdict.md`](docs/05-feasibility-verdict.md) — per-claim PROCEED/KILL and the code greenlight gate.
-8. [`06-prototype-plan.md`](docs/06-prototype-plan.md) — the fair bake-off design.
-9. [`07-pattern-as-token-the-objective.md`](docs/07-pattern-as-token-the-objective.md) — the deepest leg.
-10. [`08-combinatorial-capacity.md`](docs/08-combinatorial-capacity.md) — the capacity math, done right.
-11. [`09-hardware-requirements.md`](docs/09-hardware-requirements.md) — everything that fits an M1.
-12. [`10-frequency-salience-glow.md`](docs/10-frequency-salience-glow.md) — the glow / confidence layer.
-13. [`references.md`](docs/references.md) — annotated bibliography.
-14. [`REVIEW-LOG.md`](docs/REVIEW-LOG.md) — five adversarial review passes and what each changed.
-15. [`implementation/`](implementation/README.md) — the Rust build ladder, value-ranked and kill-gated.
+1. [`11-vsa-positioning-and-reframe.md`](docs/11-vsa-positioning-and-reframe.md) — **the framing**: this is a *learned Vector Symbolic Architecture*; the wave math is frequency-domain VSA binding. Read early — it re-points everything below.
+2. [`GROUND-UP-CONSTRAINTS.md`](docs/GROUND-UP-CONSTRAINTS.md) — the charter (C1–C8). **Read this first; it binds everything.**
+3. [`00-hypothesis-decomposed.md`](docs/00-hypothesis-decomposed.md) — the thesis restated, decomposed into H1–H5.
+4. [`01-prior-art-quantum-inspired.md`](docs/01-prior-art-quantum-inspired.md) — the real field, with numbers.
+5. [`02-why-classical-not-a-quantum-computer.md`](docs/02-why-classical-not-a-quantum-computer.md) — why not a QC.
+6. [`03-complex-amplitudes-and-the-band.md`](docs/03-complex-amplitudes-and-the-band.md) — "not 0/1, a band," answered honestly.
+7. [`04-math-and-mechanisms.md`](docs/04-math-and-mechanisms.md) — the implementable equations, each with its cost term.
+8. [`05-feasibility-verdict.md`](docs/05-feasibility-verdict.md) — per-claim PROCEED/KILL and the code greenlight gate.
+9. [`06-prototype-plan.md`](docs/06-prototype-plan.md) — the fair bake-off design.
+10. [`07-pattern-as-token-the-objective.md`](docs/07-pattern-as-token-the-objective.md) — the deepest leg.
+11. [`08-combinatorial-capacity.md`](docs/08-combinatorial-capacity.md) — the capacity math, done right.
+12. [`09-hardware-requirements.md`](docs/09-hardware-requirements.md) — everything that fits an M1.
+13. [`10-frequency-salience-glow.md`](docs/10-frequency-salience-glow.md) — the glow / confidence layer.
+14. [`references.md`](docs/references.md) — annotated bibliography.
+15. [`REVIEW-LOG.md`](docs/REVIEW-LOG.md) — five adversarial review passes and what each changed.
+16. [`implementation/`](implementation/README.md) — the Rust build ladder, value-ranked and kill-gated.
 
 ---
 
