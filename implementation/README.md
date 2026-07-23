@@ -4,7 +4,7 @@ This is the *build*, ordered so that the **highest-value, cheapest-to-kill** wor
 The organizing principle: **buy information as early and as cheaply as possible**. If the project is
 going to die, it should die in week 3 on a $0 M1 run, not in month 4 after a generation stack.
 
-Precedence: [`../GROUND-UP-CONSTRAINTS.md`](../GROUND-UP-CONSTRAINTS.md) outranks every phase doc
+Precedence: [`../docs/GROUND-UP-CONSTRAINTS.md`](../docs/GROUND-UP-CONSTRAINTS.md) outranks every phase doc
 here. A phase that violates a constraint is wrong, not the constraint.
 
 ---

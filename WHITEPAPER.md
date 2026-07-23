@@ -39,7 +39,7 @@ Crucially, "quantum" here names the **mathematics** (Hilbert-space states, unita
 
 This is a **theory-and-protocol** paper. Its contributions are the derivations of §3, the objective analysis of §4, the capacity theorems of §5, the calibration mechanism of §6, the quantitative case against quantum hardware in §7, the full resource accounting of §8, and the falsification design of §9. Its scope is deliberately bounded: we make claims at **small scale** (classification and character/byte-level modeling on an M1) and treat **generation at scale** as unproven, gated behind an explicit readout-cost wall (§8.2). We do not claim, and our design cannot support, a head-to-head against frontier models; §9 defines the only comparisons we consider valid.
 
-All experimental commitments obey a purity charter (no pretrained components, raw-byte defaults, built-from-scratch parameter-matched baselines, bit-for-bit determinism) detailed in the companion `GROUND-UP-CONSTRAINTS.md`; here we state results as *hypotheses with kill numbers*.
+All experimental commitments obey a purity charter (no pretrained components, raw-byte defaults, built-from-scratch parameter-matched baselines, bit-for-bit determinism) detailed in the companion `docs/GROUND-UP-CONSTRAINTS.md`; here we state results as *hypotheses with kill numbers*.
 
 ---
 

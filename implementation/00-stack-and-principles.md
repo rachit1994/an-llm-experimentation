@@ -2,7 +2,7 @@
 
 The engineering charter for the build. It picks the stack, defines the complex-number
 representation, sets the correctness discipline (a gradient check per kernel), and states the one
-honest escape valve. Everything here serves [`../GROUND-UP-CONSTRAINTS.md`](../GROUND-UP-CONSTRAINTS.md).
+honest escape valve. Everything here serves [`../docs/GROUND-UP-CONSTRAINTS.md`](../docs/GROUND-UP-CONSTRAINTS.md).
 
 ---
 
