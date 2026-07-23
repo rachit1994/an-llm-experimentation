@@ -81,6 +81,9 @@ enum Op {
         a: NodeId,
         b: NodeId,
     },
+    Tanh {
+        x: NodeId,
+    },
 }
 
 struct Node {
@@ -237,6 +240,13 @@ impl Tape {
         self.add(xw, b)
     }
 
+    /// Elementwise `tanh`, the nonlinearity for this increment.
+    pub fn tanh(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let value: Vec<f64> = self.nodes[x].value.iter().map(|v| v.tanh()).collect();
+        self.push(value, shape, Op::Tanh { x })
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -327,6 +337,18 @@ impl Tape {
                 }
                 self.accumulate(a, &ga);
                 self.accumulate(b, &gb);
+            }
+            Op::Tanh { x } => {
+                // node_value here IS tanh(x) (cached forward output), so
+                // d/dx tanh(x) = 1 - tanh(x)^2 = 1 - node_value^2 needs no
+                // access to x's own value.
+                let node_value = self.nodes[i].value.clone();
+                let gx: Vec<f64> = node_grad
+                    .iter()
+                    .zip(&node_value)
+                    .map(|(g, y)| g * (1.0 - y * y))
+                    .collect();
+                self.accumulate(x, &gx);
             }
         }
     }
