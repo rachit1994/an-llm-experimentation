@@ -4,7 +4,7 @@
 
 ## Run `654afeaf8b3b4048`
 
-- git_sha: `671b4632d26febd4514b88b93c9f5d81d5080032`
+- git_sha: `5c766e009611d5afad46cf2c363cdf66ef681269`
 - dataset_sha256: `none`
 - seed: 0
 - backend: cpu-scalar-oracle

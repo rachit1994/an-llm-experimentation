@@ -38,6 +38,8 @@ scratch/
 tmp/
 *.tmp
 .cache/
+mutants.out/
+mutants.out.old/
 
 # ---- OS / editor ----
 .DS_Store
