@@ -76,11 +76,20 @@ easily violated while everything looks green.
     to get it. The novelty here is the *intersection and the engineering*, not the primitives.
 
 12. **Minimal dependencies — a reviewer must survive `cargo tree`.** The entire core budget is
-    `rand`+`rand_chacha`, `serde`+`serde_json`, `sha2`, and `proptest` (dev-only). Any new crate must be
-    justified in the commit against that budget. **No DL framework** (`burn`/`candle`/`tch`/`dfdx`) for
-    headline numbers without lead sign-off; prefer a small hand-rolled implementation (e.g. the
-    ~400-line autodiff tape for Phase 1) over a heavy dependency. Prefer a hand-rolled `O(d²)` DFT for
-    tests over pulling an FFT crate. Fewer deps = fewer pins = reproducibility (C4) and no dependency hell.
+    `rand`+`rand_chacha`, `serde`+`serde_json`, `sha2`, `toml`, and `proptest`/`approx`/`tempfile`
+    (dev-only). Any new crate must be justified in the commit against that budget. **No DL framework**
+    (`burn`/`candle`/`tch`/`dfdx`) for headline numbers without lead sign-off; prefer a small hand-rolled
+    implementation (e.g. the ~400-line autodiff tape for Phase 1) over a heavy dependency. Prefer a
+    hand-rolled `O(d²)` DFT for tests over pulling an FFT crate. Fewer deps = fewer pins =
+    reproducibility (C4) and no dependency hell.
+
+13. **Commit small, push often — a human reviews incrementally.** Work in small, logically-scoped
+    commits (one task card ≈ one commit), and **push your branch to `origin` after each commit or two**
+    (`git push -u origin <your-branch>`) so a human reviewer can follow the work as it lands, not in one
+    big-bang merge at the end. Do not sit on a large uncommitted/​unpushed diff. Keep each pushed commit
+    green (`cargo test` passing, `fmt`/`clippy` clean) so every review point is a working state. Prefer
+    porting a cited reference (rule 11) over re-deriving — a solved problem should cost review time, not
+    build time.
 
 ---
 

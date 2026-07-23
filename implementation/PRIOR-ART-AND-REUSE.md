@@ -133,6 +133,28 @@ For each: the canonical reference (repo + paper), **what to borrow**, the **buil
 - **Borrow:** central difference `(L(θ+ε)−L(θ−ε))/2ε`, `ε=1e-4`, max relative error `< 1e-4`.
 - **Build:** `qilm-oracle::gradcheck` (done). **No dep.**
 
+### Reverse-mode autodiff for Phase 1 (the one hand-rolled engine)
+- **References:** [`karpathy/micrograd`](https://github.com/karpathy/micrograd) (~100-line engine: a
+  `Value{data, grad, _backward}` node, topological order, `.backward()` in reverse) and its Rust ports
+  [`ferric-micrograd`](https://github.com/msminhas93/ferric-micrograd),
+  [`danielway/micrograd-rs`](https://github.com/danielway/micrograd-rs), and the tape-style
+  [`rustograd`](https://github.com/AnarchistHoneybun/rustograd).
+- **Borrow the *architecture*, not the scalar granularity.** micrograd is scalar-valued — one node per
+  add/mul — which is far too slow for a 12.6M-param model. Port its *idea* (per-node backward closure +
+  topological reverse pass) but implement a **tensor-valued, index-based tape (Wengert list)**: a
+  `Vec<Node>` arena where each `Node` holds a value buffer, a grad buffer, and the indices of its inputs;
+  forward appends nodes, backward walks the arena in reverse accumulating grads. Index/arena beats
+  `Rc<RefCell>` here (cache-friendly, no interior-mutability overhead) and is the standard fast pattern.
+- **Ops needed for Phase 1 (small, enumerated):** `linear` (matmul + bias), an elementwise nonlinearity
+  (`tanh`/`gelu`), `add`, a numerically-stable `log_softmax`/`cross_entropy` (for BPB), and the
+  anti-collapse terms (VICReg variance/covariance, or InfoNCE). Nothing else.
+- **Correctness gate (already built):** every op's backward is validated by `qilm-oracle::gradcheck`
+  (finite-diff, max rel err `< 1e-4`) — so the hand-rolled tape is *proven*, not trusted. This is why we
+  can hand-roll it safely instead of pulling a framework.
+- **Build:** `qilm-core::autodiff` (a few hundred lines). **No dep** (no `candle`/`burn`/`dfdx`). `candle`
+  remains the sign-off-only fallback if profiling proves the tape is the bottleneck (doc: dependency
+  policy above).
+
 ---
 
 ## The Rust stack decision (minimal, phased)
