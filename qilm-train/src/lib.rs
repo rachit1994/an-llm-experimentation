@@ -10,6 +10,8 @@
 #![allow(dead_code)]
 
 pub mod gate;
+pub mod metrics;
+pub mod model_token;
 pub mod provenance;
 pub mod report;
 pub mod testkit;

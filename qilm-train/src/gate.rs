@@ -139,15 +139,16 @@ pub fn gates_lock_matches(gates_toml: &Path, gates_lock: &Path) -> io::Result<bo
     Ok(computed == locked.trim())
 }
 
-/// Evaluate the single gate Phase 0 actually produces a number for: the
-/// "G-stack" gradcheck gate — `max_rel_err < gates.toml [gradcheck].max_rel_err`.
-/// `metrics` is the `"metrics"` object of a `RunRecord` (see provenance.rs);
-/// this looks up `metrics["gradcheck_max_rel_err"]`.
+/// Evaluate a named gate against the `"metrics"` object of a `RunRecord` (see
+/// provenance.rs). Implemented so far:
+///   - `gradcheck` (Phase 0): `gradcheck_max_rel_err < [gradcheck].max_rel_err`.
+///   - `collapse` (H3): `erank_ratio` and `meanstd_ratio` both clear their mins.
+///   - `g0` (H2): `bpb_ratio <= [g0].bpb_ratio_max`.
 ///
-/// Other gate names are recognized (so the dispatch/threshold plumbing exists
-/// for Phase 1+ to extend) but return `MissingMetric` until a real model
-/// produces the corresponding field — `gate()` never fabricates a PASS/FAIL
-/// for a metric that isn't actually present.
+/// The remaining names (`improvement`, `invariance`, `calibration`, `phase`)
+/// are recognized so the dispatch/threshold plumbing exists, but return
+/// `MissingMetric` until their phase produces the field — `gate()` never
+/// fabricates a PASS/FAIL for a metric that isn't actually present.
 pub fn evaluate(
     name: &str,
     gates: &GatesConfig,
@@ -172,12 +173,66 @@ pub fn evaluate(
                 }
             })
         }
-        "g0" | "collapse" | "improvement" | "invariance" | "calibration" | "phase" => {
-            // Recognized gate families with no Phase-0 metric to evaluate
-            // yet (no model exists). Explicitly distinct from "unknown gate"
-            // so callers can tell "not implemented yet" from "typo".
+        "collapse" => {
+            // H3 anti-collapse: PASS iff BOTH ratios clear their frozen mins.
+            // GateOutcome carries a single (measured, threshold), so report the
+            // BINDING sub-constraint — the ratio with the smaller margin to its
+            // min — which is the one a reader must watch. Both are `>=` gates.
+            let erank_ratio = metrics
+                .get("erank_ratio")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| GateError::MissingMetric("erank_ratio".to_string()))?;
+            let meanstd_ratio = metrics
+                .get("meanstd_ratio")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| GateError::MissingMetric("meanstd_ratio".to_string()))?;
+            let erank_min = gates.collapse.erank_ratio_min;
+            let meanstd_min = gates.collapse.meanstd_ratio_min;
+            let passed = erank_ratio >= erank_min && meanstd_ratio >= meanstd_min;
+            // Binding sub-constraint = smaller margin (ratio - its min).
+            let (measured, threshold) =
+                if (erank_ratio - erank_min) <= (meanstd_ratio - meanstd_min) {
+                    (erank_ratio, erank_min)
+                } else {
+                    (meanstd_ratio, meanstd_min)
+                };
+            Ok(if passed {
+                GateOutcome::Pass {
+                    measured,
+                    threshold,
+                }
+            } else {
+                GateOutcome::Fail {
+                    measured,
+                    threshold,
+                }
+            })
+        }
+        "g0" => {
+            // H2 feasibility: PASS iff bpb_ratio <= frozen max (a `<=` gate).
+            let bpb_ratio = metrics
+                .get("bpb_ratio")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| GateError::MissingMetric("bpb_ratio".to_string()))?;
+            let threshold = gates.g0.bpb_ratio_max;
+            Ok(if bpb_ratio <= threshold {
+                GateOutcome::Pass {
+                    measured: bpb_ratio,
+                    threshold,
+                }
+            } else {
+                GateOutcome::Fail {
+                    measured: bpb_ratio,
+                    threshold,
+                }
+            })
+        }
+        "improvement" | "invariance" | "calibration" | "phase" => {
+            // Recognized gate families with no metric yet (their phases come
+            // later). Explicitly distinct from "unknown gate" so callers can
+            // tell "not implemented yet" from "typo".
             Err(GateError::MissingMetric(format!(
-                "gate '{name}' recognized but no metrics.json field for it exists in Phase 0"
+                "gate '{name}' recognized but no metrics.json field for it exists yet"
             )))
         }
         other => Err(GateError::UnknownGate(other.to_string())),
