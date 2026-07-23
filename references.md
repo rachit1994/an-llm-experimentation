@@ -18,9 +18,11 @@ run.
 - **Token2Wave** — arXiv:2411.06989. **[vendor/early]**
   Forward/backward dynamics and gradient flow for Wave-Network complex token representations.
   *Supports "it's trainable by standard backprop" (doc 04).*
-- **A Complex-valued Neural Network Quantum Language Model (C-NNQLM)** — ACM TOIS 2022,
-  doi:10.1145/3505138. **[landmark]** Words as Hilbert-space states; meaning as superposition of
-  sememes; tensor-product composition; **complex beats real-valued**. *The published analogue of H1
+- **Complex-valued Neural Network-based Quantum Language Models (C-NNQLM)** — P. Zhang, W. Hui,
+  B. Wang, D. Zhao, D. Song, C. Lioma, J. G. Simonsen, *ACM Transactions on Information Systems*
+  40(4), Art. 84, 2022, doi:10.1145/3505138. **[landmark]** Semantic units (sememe→word→sentence)
+  on a single Semantic Hilbert Space; complex-valued composition; **complex beats real-valued**
+  across six classification datasets. *The published analogue of H1
   (doc 01).*
 
 ## Theme 2 — Tensor networks

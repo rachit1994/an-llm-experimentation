@@ -57,6 +57,7 @@ why the whole thing runs classically. See [`05-feasibility-verdict.md`](05-feasi
 
 ## Reading order
 
+0. [`WHITEPAPER.md`](WHITEPAPER.md) — the peer-review-grade research paper (theory, derivations, capacity bounds, all calculations, references). Start here if you want the rigorous end-to-end argument; the docs below are the working dossier behind it.
 1. [`GROUND-UP-CONSTRAINTS.md`](GROUND-UP-CONSTRAINTS.md) — the charter (C1–C8). **Read this first; it binds everything.**
 2. [`00-hypothesis-decomposed.md`](00-hypothesis-decomposed.md) — the thesis restated, decomposed into H1–H5.
 3. [`01-prior-art-quantum-inspired.md`](01-prior-art-quantum-inspired.md) — the real field, with numbers.
