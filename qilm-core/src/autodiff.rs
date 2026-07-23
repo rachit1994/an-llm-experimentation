@@ -26,6 +26,15 @@
 //! (backward of a sum-of-squares loss w.r.t. a leaf is `2·leaf`) — it is not
 //! part of the model-facing API the other four ops form.
 //!
+//! Phase-1 addition — `born_logits` (T1.1): the differentiable Born-rule byte
+//! head. On real per-class amplitudes `a` the Born distribution is
+//! `p_i = a_i² / Σ_j a_j²`, which is *exactly* `softmax(ln a_i²)`. So the head
+//! is `cross_entropy(log_softmax(born_logits(a)), target)` — reusing the
+//! already-gradchecked softmax/CE backward — where `born_logits(a) = ln(a² + ε)`
+//! is the one new elementwise op (ε a small stability floor so `ln` and its
+//! gradient stay finite as `a → 0`). This mirrors `born.rs`'s squared-magnitude
+//! -> normalize semantics (T0.4), expressed in the tape's log domain.
+//!
 //! CORRECTNESS: every op here is validated in `qilm-oracle/tests/` by a
 //! `gradcheck_autodiff_*` test against a hand-derived, tape-independent oracle
 //! (closed-form forward + closed-form analytic gradient), cross-checked
@@ -34,6 +43,13 @@
 //! output. A wrong local derivative in any `backward_node` arm fails that op's
 //! gradcheck at `max_rel_err < 1e-4` — see VERIFICATION.md §3.
 #![allow(dead_code)]
+
+/// Stability floor for `born_logits`: `ln(a² + BORN_EPS)`. Keeps the log and
+/// its derivative `2a/(a² + ε)` finite as an amplitude approaches zero, at the
+/// cost of flooring each Born probability by `ε / Σ_j(a_j² + ε)` (negligible
+/// for `a` of order 1). Fixed, not tunable — it is part of the op's definition,
+/// so the gradcheck oracle uses the same constant.
+pub const BORN_EPS: f64 = 1e-6;
 
 /// Row-major 2-D shape. A vector is `Shape { rows: 1, cols: n }`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,6 +98,9 @@ enum Op {
         b: NodeId,
     },
     Tanh {
+        x: NodeId,
+    },
+    BornLogits {
         x: NodeId,
     },
     LogSoftmax {
@@ -255,6 +274,21 @@ impl Tape {
         self.push(value, shape, Op::Tanh { x })
     }
 
+    /// Born-rule byte head, log domain: `born_logits(a)_i = ln(a_i² + ε)`
+    /// (elementwise, ε = [`BORN_EPS`]). Feeding this to `log_softmax` yields the
+    /// Born distribution `p_i = (a_i² + ε) / Σ_j (a_j² + ε)` — the tape's
+    /// differentiable stand-in for `born.rs`'s squared-magnitude readout (T0.4),
+    /// so the pattern model's BPB flows through the proven softmax/CE backward.
+    pub fn born_logits(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let value: Vec<f64> = self.nodes[x]
+            .value
+            .iter()
+            .map(|a| (a * a + BORN_EPS).ln())
+            .collect();
+        self.push(value, shape, Op::BornLogits { x })
+    }
+
     /// Row-wise, numerically-stable log-softmax: subtract each row's max
     /// before exponentiating (VERIFICATION.md §3's stability requirement).
     pub fn log_softmax(&mut self, x: NodeId) -> NodeId {
@@ -404,6 +438,18 @@ impl Tape {
                     .iter()
                     .zip(&node_value)
                     .map(|(g, y)| g * (1.0 - y * y))
+                    .collect();
+                self.accumulate(x, &gx);
+            }
+            Op::BornLogits { x } => {
+                // y_i = ln(x_i² + ε); dy_i/dx_i = 2 x_i / (x_i² + ε). Needs x's
+                // own value (unlike tanh/log_softmax, the forward output y does
+                // not determine the derivative here).
+                let x_val = self.nodes[x].value.clone();
+                let gx: Vec<f64> = node_grad
+                    .iter()
+                    .zip(&x_val)
+                    .map(|(g, a)| g * (2.0 * a) / (a * a + BORN_EPS))
                     .collect();
                 self.accumulate(x, &gx);
             }
