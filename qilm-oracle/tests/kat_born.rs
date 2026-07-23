@@ -29,11 +29,43 @@ fn kat_born_sum() {
     let sum: f64 = probs.iter().sum();
     assert!(
         (sum - 1.0).abs() < 1e-6,
-        "sum of Born probabilities = {sum}, expected 1.0"
+        "sum of Born probabilities = {sum}, want 1.0"
     );
     for p in &probs {
         assert!(*p >= 0.0, "Born probability must be nonnegative, got {p}");
     }
+}
+
+/// kat_born_sum_can_say_no (anti-vacuity canary) — the "sum == 1 within
+/// 1e-6" check is not vacuously true for any input: feed it a deliberately
+/// UNNORMALIZED distribution (raw squared-magnitudes, the same quantity
+/// `born()` computes before dividing by their sum) and confirm the check
+/// correctly rejects it. This proves the assertion in `kat_born_sum` can
+/// actually fail, not just always pass by construction.
+#[test]
+fn kat_born_sum_can_say_no() {
+    let mut rng = ChaCha8Rng::seed_from_u64(12);
+    let d = 16;
+    let psi = random_complex(&mut rng, d);
+    let measurements: Vec<Complex> = (0..8).map(|_| random_complex(&mut rng, d)).collect();
+
+    // Reproduce born()'s numerator (|<m_k|psi>|^2) but skip normalization --
+    // the specific bug the T0.4 mutant catalog calls out ("remove Born
+    // normalization").
+    let unnormalized: Vec<f64> = measurements
+        .iter()
+        .map(|m| {
+            let (re, im) = m.inner(&psi);
+            re * re + im * im
+        })
+        .collect();
+    let broken_sum: f64 = unnormalized.iter().sum();
+
+    assert!(
+        (broken_sum - 1.0).abs() > 1e-3,
+        "the unnormalized sum ({broken_sum}) happened to already be ~1.0 for this seed -- \
+         pick a different seed so this canary actually exercises the failure path"
+    );
 }
 
 /// kat_born_hand_values — a small, fully hand-computed example.

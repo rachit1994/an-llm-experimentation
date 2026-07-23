@@ -54,6 +54,40 @@ fn kat_hopfield_recall() {
     );
 }
 
+/// kat_hopfield_recall_can_say_no (anti-vacuity canary) — the >= 0.99 bar is
+/// not clearable by construction: with beta -> 0, `retrieve` degenerates to
+/// an (almost) uniform average over ALL n stored patterns regardless of the
+/// query (softmax(beta * scores) -> uniform as beta -> 0), which is diluted
+/// by the other n-1 unrelated random patterns and should NOT recover the
+/// target with high cosine. Same patterns/query/seed as `kat_hopfield_recall`
+/// -- only beta changes -- proving the sharp-softmax mechanism (not the KAT's
+/// threshold) is what makes recall succeed.
+#[test]
+fn kat_hopfield_recall_can_say_no() {
+    let mut rng = ChaCha8Rng::seed_from_u64(4242);
+    let d = 128;
+    let n = 8;
+    let near_zero_beta = 1e-6;
+
+    let patterns: Vec<Vec<f64>> = (0..n).map(|_| random_pattern(&mut rng, d)).collect();
+
+    let target_idx = 3;
+    let noise_scale = 0.05;
+    let query: Vec<f64> = patterns[target_idx]
+        .iter()
+        .map(|v| v + noise_scale * rng.random_range(-1.0..1.0))
+        .collect();
+
+    let retrieved = retrieve(&patterns, &query, near_zero_beta);
+    let cos = cosine(&retrieved, &patterns[target_idx]);
+    assert!(
+        cos < 0.99,
+        "beta -> 0 should degrade recall (got cosine {cos} >= 0.99) -- if this \
+         passes, kat_hopfield_recall's threshold can't tell sharp retrieval from \
+         a uniform blend of unrelated patterns"
+    );
+}
+
 /// prop_hopfield_perm — permuting the stored pattern set does not change the
 /// retrieval output for a clean (unpermuted) query: retrieve() is a weighted
 /// sum over the pattern set, and both the weights (softmax of scores) and

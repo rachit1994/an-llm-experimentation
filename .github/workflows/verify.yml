@@ -24,6 +24,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Defeats the "compared a number to itself" scar (AGENTS.md rules 1-2): a
+  # known-answer test that compares a computed truth against an independent
+  # estimate must ship a paired canary proving the check can actually fail.
+  # No Rust toolchain needed -- pure grep over the test sources.
+  anti-vacuity-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/lint_canaries.sh
+
   # Defeats T1 (vacuous assertions slip through) by simply running every KAT,
   # gradcheck, property test, and nc_* control in the workspace.
   test:
