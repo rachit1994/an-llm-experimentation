@@ -39,6 +39,9 @@ tmp/
 *.tmp
 .cache/
 
+# ---- Agent worktrees / harness scratch (never commit; agents deliver via their own branches) ----
+.claude/
+
 # ---- OS / editor ----
 .DS_Store
 Thumbs.db
