@@ -1,0 +1,15 @@
+# CCR (Convergent Concept Representations) — Rust workspace.
+# Virtual manifest. Each crate is filled per implementation/tests/PHASE-*.md.
+# CPU is the source of truth (C3/C4); no libtorch/CUDA for headline numbers.
+[workspace]
+resolver = "2"
+members = ["qilm-core", "qilm-oracle", "qilm-data", "qilm-train"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.94"
+
+[profile.release]
+debug = true          # keep symbols for cargo-mutants / profiling

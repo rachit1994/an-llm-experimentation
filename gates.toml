@@ -1,0 +1,36 @@
+# FROZEN gate thresholds — the single source of numeric truth for PASS/FAIL.
+# Source: implementation/METRICS-AND-GATES.md §7.  Changing any value here REQUIRES
+# updating gates.lock (sha256 of this file) in the same commit; CI job `frozen-gates`
+# enforces it. Never slide a threshold to make a run pass.
+
+[gradcheck]
+max_rel_err = 1e-4
+
+[collapse]            # H3 — relative to the target patterns (not a constant)
+erank_ratio_min   = 0.50
+meanstd_ratio_min = 0.50
+
+[g0]                  # H2 — feasibility
+bpb_ratio_max = 1.10
+
+[improvement]
+param_efficiency_iso_dl = 2.28   # arithmetic, iso-(d,L)
+bpb_gap_isoparam_max    = -0.02  # iso-param quality improvement must be <= this (bits/byte)
+
+[invariance]          # H4 — headline; margin defeats collapse
+within_min  = 0.90
+between_max = 0.30
+margin_min  = 0.50
+
+[calibration]         # H5
+ece_bins        = 15
+ece_delta_min   = 0.02
+accuracy_guard_pt = 0.5
+
+[phase]               # H1
+delta_acc_pt  = 1.0
+delta_bpb_rel = 0.02
+
+[stats]
+seeds = 5
+alpha = 0.05

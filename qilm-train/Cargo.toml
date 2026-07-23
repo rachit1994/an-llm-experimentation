@@ -1,0 +1,18 @@
+[package]
+name = "qilm-train"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+qilm-core = { path = "../qilm-core" }
+qilm-data = { path = "../qilm-data" }
+# TODO(Phase 0+): sha2, serde, serde_json (provenance/report/gate); training deps in Phase 1.
+
+[dev-dependencies]
+# TODO: negative-control harness deps.
+
+[[bin]]
+name = "report"
+path = "src/bin/report.rs"

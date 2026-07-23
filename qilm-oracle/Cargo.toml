@@ -1,0 +1,12 @@
+[package]
+name = "qilm-oracle"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+qilm-core = { path = "../qilm-core" }
+
+[dev-dependencies]
+# TODO(Phase 0): approx, proptest.

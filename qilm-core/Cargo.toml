@@ -1,0 +1,12 @@
+[package]
+name = "qilm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# TODO(Phase 0): add deps you need, pinned. Suggested: rustfft, rand, rand_chacha.
+
+[dev-dependencies]
+# TODO(Phase 0): approx, proptest for KATs and property tests.

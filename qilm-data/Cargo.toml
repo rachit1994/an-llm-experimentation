@@ -1,0 +1,12 @@
+[package]
+name = "qilm-data"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# TODO(Phase 0, Haiku): rand, rand_chacha (seedable), sha2, serde, serde_json.
+
+[dev-dependencies]
+# TODO: approx.
