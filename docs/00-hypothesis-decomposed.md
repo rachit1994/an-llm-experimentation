@@ -67,17 +67,26 @@ These map one-to-one onto the phase docs 04/07 (C1/C2), 08 (C3), and 10 (C4).
 Every hypothesis is stated so that a single measured number can *end* it. No hypothesis is allowed
 to be "directionally encouraging."
 
-| # | Hypothesis | Metric | **Kill number** |
-|---|---|---|---|
-| **H1** | Complex **phase** carries representational information a real-valued net cannot recover at equal params. | Accuracy/perplexity gap between full-complex model and its **phase=0** ablation, param-matched. | Gap ≤ **1σ of the seed noise** (i.e. real ablation *ties*) ⇒ drop the quantum claim. |
-| **H2** | Predicting the **next pattern** is competitive with predicting the next token at equal params. | Validation perplexity (via a fixed decoder) of pattern model vs param-matched token baseline. | Pattern model **>10%** worse perplexity, **or** representation collapses. |
-| **H3** | Pattern prediction does **not collapse** (does not learn a constant/low-rank output). | **Effective rank** / per-dim variance of predicted patterns over the val set. | Effective rank **< 50%** of embedding dim, or variance within **10×** of a constant predictor. |
-| **H4** | A concept **reliably re-triggers** the same sparse attractor under input noise ("bee test"). | Node-overlap hit-rate between clean and noisy triggerings of the same concept. | Hit-rate **< ~90%** at the target noise level. |
-| **H5** | **Brightness** (glow) tracks **correctness**, giving calibration better than a no-glow model. | Expected Calibration Error (ECE) and reliability-diagram slope, glow vs no-glow. | Glow does **not** reduce ECE vs no-glow (brightness ⟂ correctness) ⇒ narrow the glow claim to "salience only." |
+Every threshold below is a pre-registered constant with an exact measurement procedure; the full
+definitions (BPB, the collapse ratios, the invariance margin, ECE bins, effect sizes, and the paired
+significance test over 5 seeds) live in
+[`implementation/METRICS-AND-GATES.md`](../implementation/METRICS-AND-GATES.md). No threshold here
+contains a "~".
 
-H1 is the **decisive** one for the "quantum" branding: if the real-valued ablation ties, the
-project keeps pattern-as-token and glow but drops the quantum-formalism claim. H2/H3 gate the
-pattern objective (the deepest and most valuable leg). H4 gates memory. H5 gates the product story.
+| # | Hypothesis | Metric | **Kill number (exact, pre-registered)** |
+|---|---|---|---|
+| **H1** | Complex **phase** carries representational information a real-valued net cannot recover at equal params. | `Δ = metric(full-complex) − metric(phase=0)`, param-matched, equal tuning; metric = AG News accuracy / −BPB. | `Δ < 1.0` accuracy pt (or `< 2%` rel. BPB) **or** not significant (paired, `p<0.05`, 5 seeds) ⇒ **drop the phase/"wave" claim** (§6). |
+| **H2** | Predicting the **next pattern** is competitive with predicting the next byte at equal `(d,L)`. | **Bits-per-byte** (BPB) of the pattern model (256-way Born head) vs param-matched byte baseline. | `BPB(pattern) > 1.10 · BPB(baseline)` **or** collapse (H3) ⇒ **stop project** (§1,§3). |
+| **H3** | Pattern prediction does **not collapse** (constant/low-rank output). | Effective rank and mean per-dim std of predictions **relative to the target patterns**. | `erank(Z) < 0.50·erank(Z*)` **or** `meanstd(Z) < 0.50·meanstd(Z*)` ⇒ **stop** (§2). *(The old "10× a constant" was vacuous: `10·0 = 0`.)* |
+| **H4** | **(headline)** the encoder maps *augmented inputs* to the same pattern, and different concepts to different patterns. | `within = sim(enc(aug x), enc x)`, `between = sim(enc x, enc y)` at pre-registered aug rates. | `within < 0.90` **or** `between > 0.30` **or** `within−between < 0.50` ⇒ narrow to attractor-stability (§4). |
+| **H5** | **Brightness** (glow) tracks **correctness**, beating a no-glow model on calibration. | ECE (`M=15` bins, held-out) and accuracy, glow vs no-glow. | `ECE(glow) > ECE(no-glow) − 0.02` **or** `acc(glow) < acc(no-glow) − 0.5pt` **or** not significant ⇒ narrow to "salience only" (§5). |
+
+H1 is **decisive** for the phase/"wave" mechanism: if the real-valued ablation does not clear the
+effect-size floor with significance, the project keeps the (real-valued) VSA encoder and glow but drops
+the wave/phase claim. H2/H3 gate the pattern objective (the load-bearing leg). H4 is the **headline
+invariance** claim, gated with a discrimination margin so it cannot be won by collapse, and *trained*
+by an explicit `L_inv` term (§4.4) so that following the plan actually produces it. H5 gates the
+product story.
 
 ---
 

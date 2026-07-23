@@ -89,6 +89,7 @@ simulability pincer), which is exactly why the whole thing runs classically. See
 14. [`references.md`](docs/references.md) — annotated bibliography.
 15. [`REVIEW-LOG.md`](docs/REVIEW-LOG.md) — five adversarial review passes and what each changed.
 16. [`implementation/`](implementation/README.md) — the Rust build ladder, value-ranked and kill-gated.
+17. [`implementation/METRICS-AND-GATES.md`](implementation/METRICS-AND-GATES.md) — **the testability contract**: every gate as an exact, runnable PASS/FAIL (bits-per-byte, collapse ratios, the invariance margin, ECE, effect sizes, the paired significance test). No "~" thresholds. Read this to check that each claimed number is actually measurable.
 
 ---
 

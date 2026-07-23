@@ -209,7 +209,19 @@ whose uniformity term makes constant outputs high-loss by construction.
 
 **(c) VQ codebook.** Quantize targets to a learned codebook of $K$ codes (EMA updates + dead-code reinitialization); the predictor targets a code index, which cannot collapse without collapsing codebook usage (monitored via codebook perplexity). A side benefit is cheap readout over $K\ll|V|$ codes (§8.2).
 
-**Selection rule (H2/H3):** whichever regularizer yields no collapse at the best perplexity at equal parameters proceeds; if *none* avoids collapse within the perplexity budget, the project stops.
+**Selection rule (H2/H3):** whichever regularizer yields no collapse (H3, measured relative to the
+targets — §9.1) at the best **bits-per-byte** (via the 256-way Born readout head, not an undefined
+"decoder" — §9.1) at equal parameters proceeds; if *none* avoids collapse within the BPB budget
+($\le 1.10\times$ the byte baseline), the project stops.
+
+**The invariance term.** To *train* (not merely test) the headline invariance (H4), the objective adds
+$L_{\mathrm{inv}} = D(\mathrm{enc}(\mathrm{aug}(x)),\ \mathrm{sg}\,\mathrm{enc}(x))$ — an augmented-view
+positive in the spirit of JEPA/SimCLR, where `aug` is a fixed, C1-clean augmentation family (byte
+deletion/substitution, case, whitespace, local swap; no pretrained augmenter). Without this term,
+next-pattern prediction alone gives no reason for $\mathrm{enc}(\mathrm{aug}(x))$ and $\mathrm{enc}(x)$
+to coincide, and the encoder would be *tested* for a property it was never *trained* for. The
+`no_invariance` ablation must fail the H4 gate, establishing that the invariance is caused by
+$L_{\mathrm{inv}}$.
 
 ### 4.4 Parameter reclamation: a general calculation
 
@@ -486,13 +498,28 @@ Apple Metal has only partial complex support. We (i) treat the CPU (NdArray) bac
 
 | # | hypothesis | metric | **kill number** |
 |---|---|---|---|
-| **H1** | complex **phase** carries information a real net cannot recover at equal params | accuracy gap: full-complex vs **phase$=0$** ablation (param-matched) | gap $\le 1\sigma$ of seed noise $\Rightarrow$ **drop "quantum"** |
-| **H2** | next-pattern is competitive with next-token at equal params | val perplexity (fixed decoder) vs param-matched token baseline | pattern $>10\%$ worse **or** collapse $\Rightarrow$ **stop project** |
-| **H3** | pattern prediction does not collapse | effective rank / per-dim variance | $\mathrm{erank}<0.5d$ or variance within $10\times$ constant $\Rightarrow$ **stop** |
-| **H4** | **(headline) invariance** — a concept re-triggers nearly the same pattern across *surface variation*: byte-noise, augmentation, and paraphrase | node-overlap hit-rate, clean cue vs varied cue; overlap monotone in semantic similarity | hit-rate $<\sim90\%$ **or** overlap not monotone $\Rightarrow$ narrow to soft retrieval |
-| **H5** | brightness tracks correctness (calibration) | ECE, glow vs no-glow on held-out | $\mathrm{ECE}(\text{glow})\ge\mathrm{ECE}(\text{no-glow})\Rightarrow$ narrow to salience |
+Every threshold is a pre-registered constant with an exact measurement procedure; the full operational
+definitions (bits-per-byte; the collapse ratios; the invariance margin; ECE binning; effect sizes; the
+paired significance test over 5 seeds) are in the companion `implementation/METRICS-AND-GATES.md`. No
+threshold contains a "$\sim$".
 
-H4 is the **headline** claim (the invariance/convergence property the encoder is named for); H1 governs whether the *wave/phase* mechanism earns its parameters; H2/H3 govern whether the pattern objective is a viable *project* at all; H5 governs the confidence product. Each fails to a specific, pre-registered number. The stronger, later form of H4 — invariance across *modalities* (the same concept from an image, a sentence, or a video landing on nearly the same pattern) — requires from-scratch multi-modal encoders and is a **scaling destination** (§10), deliberately excluded from the decision-grade claim because it is not demonstrable under C1 on an M1.
+| # | hypothesis | metric | **kill number (exact)** |
+|---|---|---|---|
+| **H1** | complex **phase** earns its parameters vs a real net at equal params | $\Delta=\mathrm{acc}$ (or $-\mathrm{BPB}$): full-complex vs **phase$=0$**, param-matched, equal tuning | $\Delta < 1.0$ pt (or $<2\%$ rel. BPB) **or** not significant (paired, $p<0.05$, 5 seeds) $\Rightarrow$ **drop the phase/"wave" claim** |
+| **H2** | next-pattern is competitive with next-byte at equal $(d,L)$ | **bits-per-byte** (256-way Born head) vs param-matched byte baseline | $\mathrm{BPB(pattern)}>1.10\cdot\mathrm{BPB(baseline)}$ **or** collapse $\Rightarrow$ **stop project** |
+| **H3** | pattern prediction does not collapse | effective rank and mean per-dim std of predictions, **relative to the targets** | $\mathrm{erank}(Z)<0.5\,\mathrm{erank}(Z^\ast)$ **or** $\mathrm{meanstd}(Z)<0.5\,\mathrm{meanstd}(Z^\ast)$ $\Rightarrow$ **stop** |
+| **H4** | **(headline)** the encoder maps *augmented inputs* to the same pattern **and** different concepts apart | $\mathrm{within}=\mathrm{sim}(\mathrm{enc}(\mathrm{aug}\,x),\mathrm{enc}\,x)$; $\mathrm{between}=\mathrm{sim}(\mathrm{enc}\,x,\mathrm{enc}\,y)$ | $\mathrm{within}<0.90$ **or** $\mathrm{between}>0.30$ **or** $\mathrm{margin}<0.50$ $\Rightarrow$ narrow to attractor-stability |
+| **H5** | brightness tracks correctness (calibration) | ECE ($M{=}15$ bins, held-out) and accuracy, glow vs no-glow | $\mathrm{ECE(glow)}>\mathrm{ECE(no\text{-}glow)}-0.02$ **or** $\mathrm{acc(glow)}<\mathrm{acc(no\text{-}glow)}-0.5$pt **or** not significant $\Rightarrow$ narrow to salience |
+
+H4 is the **headline** claim (the invariance/convergence property the encoder is named for), gated with
+a **discrimination margin** so it cannot be won by a collapsed encoder, and it is *trained* by an
+explicit invariance term $L_{\mathrm{inv}}=D(\mathrm{enc}(\mathrm{aug}\,x),\mathrm{sg}\,\mathrm{enc}\,x)$
+whose `no_invariance` ablation must fail the gate — otherwise the plan would test a property it never
+trained for. H1 governs whether the *wave/phase* mechanism earns its parameters; H2/H3 govern whether
+the pattern objective is a viable *project* at all; H5 governs the confidence product. The stronger,
+later form of H4 — invariance across *modalities* (§10) and true *semantic* paraphrase (which needs a
+labeled set, not a C1-clean augmentation) — is a **scaling destination**, deliberately excluded from the
+decision-grade claim.
 
 ### 9.2 Fairness controls
 
@@ -500,7 +527,16 @@ H4 is the **headline** claim (the invariance/convergence property the encoder is
 
 ### 9.3 The statistical decision
 
-For H1 the estimand is $\Delta=\mathrm{metric}(\text{complex})-\mathrm{metric}(\text{phase}=0)$. Let $s$ be the pooled per-seed standard deviation. We pre-register a one-sided decision at effect size $\Delta>s$ (a "win" smaller than one seed-$\sigma$ is treated as noise). A supporting diagnostic — the phase histogram — must show phase is *used*; if the free-phase model drives $\phi\to0$ on its own, that is itself an H1 kill (the data did not want phase). The same $\sigma$-thresholded discipline applies to every headline comparison; the threshold is written down before the run to prevent goalpost-moving.
+For H1 the estimand is $\Delta=\mathrm{metric}(\text{complex})-\mathrm{metric}(\text{phase}=0)$. We
+pre-register **both** an effect-size floor and a significance test: PASS requires $\Delta\ge\delta_{\phi}$
+($\delta_{\phi}=1.0$ accuracy point on AG News, or $\ge2\%$ relative BPB) **and** a one-sided paired test
+over 5 seeds at $p<0.05$. Requiring both is what removes the "if and but": a statistically-real but
+trivially-small win ($\Delta$ below $\delta_{\phi}$) still drops the claim, and a large but noisy
+difference (not significant) also drops it. A supporting diagnostic — the phase histogram — must show
+phase is *used*; if the free-phase model drives $\phi\to0$ on its own, that is itself an H1 kill (the
+data did not want phase). Every headline comparison uses this same effect-size-plus-significance
+discipline with its own pre-registered $\delta$ (listed in `implementation/METRICS-AND-GATES.md` §7);
+the constants are frozen before the first run to prevent goalpost-moving.
 
 ### 9.4 What "test against LLMs" means
 

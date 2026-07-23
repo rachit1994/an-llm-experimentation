@@ -152,7 +152,7 @@ capacity math is doc 08).
 
 | Gate | Question | Pass condition |
 |---|---|---|
-| **G0** | Does it even train without cheating? | **No collapse** (H3) **and** competitive perplexity (within ~10% of param-matched token baseline). *This is the project go/no-go.* |
+| **G0** | Does it even train without cheating? | **No collapse** (H3, relative to targets) **and** **BPB ≤ 1.10×** the param-matched byte baseline (exact protocol: [`../implementation/METRICS-AND-GATES.md`](../implementation/METRICS-AND-GATES.md)). *This is the project go/no-go.* |
 | **G1** | Does thinking-in-patterns help reasoning? | **Fewer reasoning steps** to the same accuracy vs token-CoT (the Coconut claim, reproduced small). |
 | **G2** | Does the pattern space transfer? | **Transfer** to a held-out task **at fixed params** beats the token baseline. |
 | **G3** | Is it compositional? | Systematic **compositional generalization** (novel combinations) beats the token baseline. |

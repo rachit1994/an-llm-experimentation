@@ -36,18 +36,24 @@ tolerance). This is the "glow = deeper attractor" claim, measured.
 
 ### Test 2 — Calibration beats no-glow (the H5 kill test)
 
-Build a **reliability diagram** (predicted confidence vs empirical accuracy, binned) and compute
-**ECE** (Expected Calibration Error) for the glow model and a no-glow model, matched otherwise (C6).
+Build a **reliability diagram** (predicted confidence vs empirical accuracy, `M = 15` equal-width
+bins) and compute **ECE** (Expected Calibration Error) on the **held-out** split (C5) for the glow
+model and a no-glow model, matched otherwise (C6). Exact definition in
+[`METRICS-AND-GATES.md`](METRICS-AND-GATES.md) §5.
 
 ```
-PASS   ⟺   ECE(glow) < ECE(no-glow)     (brightness tracks correctness)
-NARROW ⟹   ECE(glow) ≥ ECE(no-glow)     (brightness ⟂ correctness)
-           → drop "calibrated confidence / anti-hallucination",
-             keep "salience weighting" (brightness as an attention prior only)
+PASS (H5)  ⟺   ECE(glow) ≤ ECE(no-glow) − 0.02          (≥ 2 absolute ECE points better)
+               AND accuracy(glow) ≥ accuracy(no-glow) − 0.5pt   (not bought by dumbing down)
+               AND paired over 5 seeds, one-sided p < 0.05
+NARROW     ⟹   any condition fails
+               → drop "calibrated confidence / anti-hallucination",
+                 keep "salience weighting" (brightness as an attention prior only)
 ```
 
-This is H5. It is the whole product claim reduced to one number: if the bright concepts are not the
-*correct* ones, the confidence signal is a lie and we say so.
+Three specifics fix the earlier under-specified `ECE(glow) < ECE(no-glow)`: `M = 15` bins (ECE depends
+on bin count), a **2-point** minimum effect size (a `0.001` win is not a win), and an **accuracy guard**
+— otherwise the degenerate "be uniformly less confident" solution lowers ECE for free. This is H5: the
+whole product claim reduced to a pre-registered pass/fail.
 
 ### Test 3 — Runaway check (mandatory, a guardrail not a metric)
 
@@ -62,8 +68,8 @@ calibration numbers until it's fixed.
 ## The gate
 
 ```
-PROCEED (full glow claim)  ⟺  Test 1 monotone AND Test 2 ECE(glow) < ECE(no-glow) AND Test 3 clean
-NARROW to salience         ⟸  Test 2 fails (ECE not beaten)
+PROCEED (full glow claim)  ⟺  Test 1 monotone AND Test 2 PASS (ΔECE ≤ −0.02, acc guard, p<0.05) AND Test 3 clean
+NARROW to salience         ⟸  Test 2 fails (ECE not beaten by ≥ 2 points, or accuracy guard violated)
 BUG (stop and fix)         ⟸  Test 3 shows frequency runaway with fixes ON
 ```
 

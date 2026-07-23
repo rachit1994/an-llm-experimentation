@@ -7,14 +7,19 @@ going to die, it should die in week 3 on a $0 M1 run, not in month 4 after a gen
 Precedence: [`../docs/GROUND-UP-CONSTRAINTS.md`](../docs/GROUND-UP-CONSTRAINTS.md) outranks every phase doc
 here. A phase that violates a constraint is wrong, not the constraint.
 
+**Every gate's exact, pre-registered pass/fail — the metric definitions, thresholds, effect sizes, and
+the paired significance test — lives in [`METRICS-AND-GATES.md`](METRICS-AND-GATES.md).** The phase docs
+below state each gate in shorthand and defer to that file for the runnable definition; a threshold that
+cannot be computed from a logged run (or that contains a "~") is not a gate.
+
 ---
 
 ## Phase table (highest-value-and-cheapest-to-kill first)
 
 | Phase | What it proves | Kill/narrow gate | Why this order |
 |---|---|---|---|
-| **[Phase 1](PHASE-1-pattern-feasibility.md)** — pattern feasibility | The load-bearing leg (C2) trains without collapsing, competitive perplexity | **G0**: collapse OR >10% perplexity ⇒ **STOP PROJECT** | Most valuable, most killable, cheapest to run (~hours). Do it first. |
-| **[Phase 2](PHASE-2-sparse-attractor-memory.md)** — sparse attractor memory | Concepts re-trigger reliably (C3, the "bee test") | Hit-rate < ~90% ⇒ narrow to soft retrieval | Needed by glow (Phase 3) and generation (Phase 6). |
+| **[Phase 1](PHASE-1-pattern-feasibility.md)** — pattern feasibility | The load-bearing leg (C2) trains without collapsing, competitive BPB | **G0**: collapse OR BPB > 1.10× baseline ⇒ **STOP PROJECT** | Most valuable, most killable, cheapest to run (~hours). Do it first. |
+| **[Phase 2](PHASE-2-sparse-attractor-memory.md)** — sparse attractor memory + invariance | Encoder invariance (H4 headline) + attractor stability | within<0.90 OR between>0.30 OR margin<0.50 ⇒ narrow to stability | Needed by glow (Phase 3) and generation (Phase 6). |
 | **[Phase 3](PHASE-3-glow-confidence.md)** — glow / confidence | Calibrated inspectable confidence (C4) | ECE not beaten ⇒ narrow to salience | The product story; cheap once memory exists. |
 | **[Phase 4](PHASE-4-complex-wave.md)** — complex wave | Phase earns its keep (C1/H1) | phase=0 ties ⇒ **drop "quantum"** | The decisive branding ablation; run once the harness is trusted. |
 | **[Phase 5](PHASE-5-unitary-dynamics.md)** — unitary dynamics | Long-range memory (uRNN leg) | no gain ⇒ **drop unitary** | Builds on complex (Phase 4). |
@@ -61,11 +66,13 @@ quarter.
 Be explicit about which failures **kill the project** and which merely **narrow a claim**:
 
 **Project-kill (stop everything):**
-- **G0 fails** — the pattern objective collapses or is >10% worse perplexity than the param-matched
-  token baseline (Phase 1). The load-bearing leg is gone; there is no project without it.
+- **G0 fails** — the pattern objective collapses (H3, relative to targets) or has BPB > 1.10× the
+  param-matched byte baseline (Phase 1, protocol §2–§3). The load-bearing leg is gone; there is no
+  project without it.
 
 **Claim-narrow (keep going, drop one claim):**
-- **Phase 2** bee-test < ~90% ⇒ drop "reliable attractor," keep "soft similarity retrieval."
+- **Phase 2** encoder-invariance margin fails (within<0.90 / between>0.30 / margin<0.50) ⇒ drop
+  "encoder invariance," keep "attractor stability."
 - **Phase 3** glow doesn't beat no-glow on ECE ⇒ drop "calibrated confidence," keep "salience."
 - **Phase 4** phase=0 ties at equal params ⇒ **drop the "quantum" claim**, keep pattern + glow.
 - **Phase 5** unitary shows no long-range gain ⇒ drop the unitary layer.

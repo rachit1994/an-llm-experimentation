@@ -25,35 +25,43 @@ Blocks: Phase 3 (glow needs memory) and Phase 6 (generation retrieves concepts).
 
 ---
 
-## The bee test (the metric that decides Phase 2)
+## Two distinct tests (do not conflate them)
 
-For each stored concept `c` with clean pattern `ξ_c`:
+All exact thresholds are pre-registered in [`METRICS-AND-GATES.md`](METRICS-AND-GATES.md) §4.
 
-1. Corrupt it: `ξ̃_c = noise(ξ_c, level)` (flip/drop a fraction of active nodes, add Gaussian jitter).
-2. Retrieve: `ξ̂_c = retrieve(ξ̃_c)`.
-3. **Hit** if the active-node overlap between `ξ̂_c` and `ξ_c` exceeds a threshold (e.g. Jaccard /
-   node-overlap ≥ target).
+- **(4a) Attractor stability** — a *code-space* denoising test. Corrupt a stored code and require it to
+  retrieve itself. This is the memory *mechanism*.
+- **(4b) Encoder invariance** — the *headline* (H4): the **encoder** maps an *augmented input* to the
+  same pattern (`enc(aug(x)) ≈ enc(x)`). This is the property the model is named for. It is a
+  property of the encoder + the `L_inv` training term (protocol §4.4), not of retrieval alone.
 
-```
-bee-test hit-rate = fraction of concepts that retrieve back to themselves under noise
-PASS  ⟺  hit-rate ≥ ~90%  at the target noise level
-```
+### (4a) Attractor stability
 
-Second, softer check — **overlap ∝ similarity**: *similar* concepts should retrieve to *nearby*
-attractors (graceful, meaningful confusion), not random collapse. Plot retrieved-overlap vs
-input-similarity; it should be monotone. A model that passes the hit-rate but has *random* confusions
-has a broken geometry.
-
----
-
-## The gate
+For each stored concept `c` with clean pattern `ξ_c`: corrupt `ξ̃_c = noise(ξ_c, σ=0.10·meanstd(ξ))`,
+retrieve `ξ̂_c = retrieve(ξ̃_c)`, and score a **hit** if `sim(ξ̂_c, ξ_c) ≥ 0.90` (Jaccard for sparse,
+cosine for dense).
 
 ```
-PASS      ⟺   bee-test hit-rate ≥ ~90%  AND  overlap-vs-similarity is monotone
-NARROW    ⟹   hit-rate < ~90% (unstable attractors)
-              → drop "reliable attractor storage", keep "soft similarity retrieval"
-                (a weaker but still-honest claim: retrieval returns *near* the concept, not *the* concept)
+stability PASS  ⟺  hit-rate ≥ 0.90 at code-noise σ = 0.10·meanstd(ξ)   (over 5 seeds, mean)
 ```
+
+### (4b) Encoder invariance + discrimination (the H4 gate)
+
+Invariance alone is gameable by collapse, so the gate is a **margin** between same-item and
+different-item similarity (protocol §4.3), evaluated at the pre-registered augmentation rates
+{`delete 10%`, `substitute 10%`, `case 50%`, `swap w=3`}:
+
+```
+within  = mean_x  sim(enc(aug(x)), enc(x))          # same item, augmented
+between = mean_{x≠y} sim(enc(x), enc(y))            # different items
+
+PASS (H4)  ⟺  within ≥ 0.90  AND  between ≤ 0.30  AND  margin = within − between ≥ 0.50
+NARROW     ⟹  any condition fails → drop "encoder invariance", keep "attractor stability" (4a only)
+```
+
+A collapsed encoder (`within ≈ between ≈ 1`, `margin ≈ 0`) **fails** by construction — that is the
+point of the margin. The `no_invariance` ablation (train without `L_inv`) must also fail this gate, which
+proves the invariance is *caused by the objective* and not incidental.
 
 Before narrowing, try the obvious recovery: **raise `β`** (sharper attractors) and check the energy
 landscape. Modern Hopfield's capacity is exponential in `d` (doc 08), so instability at a few
@@ -86,7 +94,7 @@ stability tradeoff, and the bee test measures exactly where you sit on it.
 ### Interview questions this doc answers
 
 - *"How do you test that a concept is stored, not just named?"* The bee test: corrupt a concept's
-  pattern, retrieve, and require ≥ ~90% node-overlap back to the original — plus overlap-vs-similarity
+  pattern, retrieve, and require ≥ 0.90 node-overlap back to the original — plus overlap-vs-similarity
   monotonicity so confusions are graceful.
 - *"What retrieval rule?"* Modern-Hopfield / attention: `X·softmax(β XᵀΞ)`, `β = 1/√d` — one step is
   one attention step (doc 08).

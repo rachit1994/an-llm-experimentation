@@ -28,9 +28,11 @@ void.
 - **Basis:** Continuous-latent prediction is a live, promising direction (Coconut, Large Concept
   Models, JEPA — doc 07); ~46% of a small model's params are the vocabulary table it reclaims
   (doc 09).
-- **Kill criterion (H2/H3):** representation **collapses** (effective rank < 50% of embed dim) **or**
-  validation perplexity is **>10% worse** than the param-matched token baseline. → **STOP the
-  project** (this is the load-bearing leg).
+- **Kill criterion (H2/H3):** representation **collapses** (`erank(Z) < 0.5·erank(Z*)` or
+  `meanstd(Z) < 0.5·meanstd(Z*)`, i.e. relative to the *targets* — not the vacuous "10× a constant")
+  **or** **bits-per-byte** is **>10% worse** than the param-matched byte baseline. → **STOP the
+  project** (this is the load-bearing leg). Exact protocol:
+  [`implementation/METRICS-AND-GATES.md`](../implementation/METRICS-AND-GATES.md) §2–§3.
 - **Revisit trigger:** a new anti-collapse objective (e.g. a better VICReg/VQ variant) with evidence
   on a public benchmark.
 
@@ -39,9 +41,10 @@ void.
 - **Verdict: PROCEED.**
 - **Basis:** Modern Hopfield = attention has exponential storage capacity (Ramsauer et al. 2020,
   doc 08); a few thousand sparse nodes + `N²/2` weights are M1-sized (doc 09).
-- **Kill criterion (H4):** the "bee test" hit-rate (same concept → same attractor under noise)
-  **< ~90%**. → narrow to "soft similarity retrieval," drop "reliable attractor."
-- **Revisit trigger:** higher `β` / better energy landscape recovers hit-rate above threshold.
+- **Kill criterion (H4):** the encoder-invariance margin fails — `within < 0.90` **or**
+  `between > 0.30` **or** `within − between < 0.50` at the pre-registered augmentation rates. → narrow
+  to "soft similarity retrieval / attractor stability," drop "encoder invariance." Exact protocol §4.
+- **Revisit trigger:** higher `β` / better energy landscape / stronger `L_inv` weight recovers the margin.
 
 ### C4 — Frequency glow (calibrated confidence)
 
@@ -80,10 +83,10 @@ void.
 | Claim | Verdict | Kill number | If killed |
 |---|---|---|---|
 | C1 formalism | **PROCEED** | (phase via H1) | — |
-| C2 pattern-as-token | **PROCEED (G0)** | collapse OR >10% perplexity | STOP project |
-| C3 sparse attractor | **PROCEED** | bee-test < ~90% | narrow to soft retrieval |
-| C4 glow | **PROCEED (narrow-able)** | ECE not beaten | narrow to salience |
-| phase novelty (H1) | **DECISIVE** | phase=0 ties | drop "quantum" |
+| C2 pattern-as-token | **PROCEED (G0)** | collapse (rel. to targets) OR BPB > 1.10× | STOP project |
+| C3 sparse attractor / invariance | **PROCEED** | within<0.90 OR between>0.30 OR margin<0.50 | narrow to attractor-stability |
+| C4 glow | **PROCEED (narrow-able)** | ΔECE > −0.02 OR acc drop OR not significant | narrow to salience |
+| phase novelty (H1) | **DECISIVE** | Δ < 1.0pt (or <2% BPB) OR not significant | drop phase/"wave" claim |
 | quantum hardware | **REJECTED** | — | (stays rejected) |
 | generation at scale | **UNPROVEN (gated)** | needs full `O(\|V\|·d)` | narrow to encoder-only |
 
@@ -107,8 +110,8 @@ Do **not** write Phase-N+1 code until Phase-N's gate passes on a **logged, repro
 
 1. **G-stack:** the `(re, im)` complex newtype passes its scalar-oracle + finite-difference gradient
    check (`implementation/00-...`). *Without this, every later number is suspect.*
-2. **G0 (Phase 1):** pattern predictor shows **no collapse** and **within ~10% perplexity** of the
-   param-matched token baseline. *This is the project-level go/no-go.*
+2. **G0 (Phase 1):** pattern predictor shows **no collapse** (relative to targets) and **BPB ≤ 1.10×**
+   the param-matched byte baseline. *This is the project-level go/no-go.*
 3. Only then Phases 2–5 (memory, glow, complex, unitary), each behind its own gate.
 4. Phase 6 (generation) only if a mitigation beats the `O(|V|·d)` wall.
 
@@ -130,8 +133,9 @@ head-to-head).
 
 ### Interview questions this doc answers
 
-- *"What's your go/no-go, in one gate?"* G0: the next-pattern predictor must not collapse and must
-  be within ~10% perplexity of a param-matched token baseline; fail ⇒ stop the project.
+- *"What's your go/no-go, in one gate?"* G0: the next-pattern predictor must not collapse (effective
+  rank and per-dim std ≥ 0.5× the targets') and must reach BPB ≤ 1.10× a param-matched byte baseline;
+  fail ⇒ stop the project.
 - *"Which claim, if it fails, kills the branding vs kills the project?"* Phase=0 tie kills the
   *branding* (drop "quantum"); pattern collapse / >10% perplexity kills the *project*.
 - *"Can it really run on an M1?"* Yes; the only caveat is Metal's partial complex support, handled

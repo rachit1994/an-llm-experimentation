@@ -12,8 +12,10 @@ specifies the cuts, the fairness rules, and — crucially — what *"test agains
 
 The most valuable and most killable cut, run **first** (it is Phase 1). A next-**pattern** predictor
 vs a param-matched next-**token** baseline, with **collapse instrumentation on from line one**
-(effective rank + per-dim variance of predicted patterns). Data: raw bytes/chars (C2). Gate: **G0**
-(no collapse, within ~10% perplexity). See [`07-pattern-as-token-the-objective.md`](07-pattern-as-token-the-objective.md).
+(effective rank + per-dim std of predictions, relative to the targets). Data: raw bytes/chars (C2).
+Gate: **G0** (no collapse; BPB ≤ 1.10× the byte baseline — exact protocol in
+[`../implementation/METRICS-AND-GATES.md`](../implementation/METRICS-AND-GATES.md)). See
+[`07-pattern-as-token-the-objective.md`](07-pattern-as-token-the-objective.md).
 
 ### Cut A — AG News classification (the "known-winnable" cut)
 
