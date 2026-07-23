@@ -6,7 +6,7 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 
 | phase | scope | agent(s) | status | gate result (see RESULTS.md) |
 |---|---|---|---|---|
-| 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | IN-REVIEW (integrated, green) | gradcheck PASS (9.99e-13 < 1e-4); mutation-testing running |
+| 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | **DONE (gate PASS)** | gradcheck PASS (9.99e-13 < 1e-4); bind.rs mutation 73/73 viable caught, 0 survivors |
 | 1 | next-pattern predictor + L_inv + G0 | — | not started | — |
 | 2 | attractor memory + encoder invariance (H4) | — | not started | — |
 | 3 | glow / calibration (H5) | — | not started | — |
@@ -31,7 +31,13 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   sha2, toml (+ dev proptest, approx, tempfile).
   Reproduced from clean: **cargo test --workspace = 49 passed / 0 failed**; fmt clean; clippy 0
   warnings; anti-vacuity-lint passes; entropy KAT `|Δ|=0.0024` (nonzero) with canary at 5.65.
-- **Open Phase-0 DoD item:** mutation testing (cargo-mutants, `--test-workspace=true`) running
-  to confirm the suite kills mutants — including the new hand-rolled DFT. Model-level negative
-  controls (collapse/BPB/invariance) are correctly deferred to Phase 1 (their metrics don't
-  exist yet).
+- **Phase 0 CLOSED.** Mutation testing (`cargo-mutants --test-workspace=true`) on the
+  highest-risk / modified file `qilm-core/src/bind.rs`: **74 mutants → 73 caught, 0 missed, 1
+  unviable** — the suite kills every viable mutation of the binding kernel (incl. the new
+  hand-rolled DFT), proving the tests are non-vacuous. Full-workspace mutation is left to the
+  nightly CI `mutants` job (the other kernels are finite-diff gradcheck-validated < 1e-4 +
+  KAT-covered). Model-level negative controls (collapse/BPB/invariance) are correctly deferred
+  to Phase 1 (their metrics don't exist yet).
+- **Phase 1 STARTED:** first increment `build/phase1-autodiff` (Sonnet) — an index-tape
+  reverse-mode autodiff ported from micrograd (zero new deps, every op finite-diff-gradchecked),
+  pushing to origin incrementally for human review (AGENTS.md rule 13).
