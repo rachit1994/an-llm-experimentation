@@ -1,0 +1,68 @@
+# Phase specification: maps each phase 0..6 to gates and their interpretations.
+# Kind: {project_kill, narrow, infra} determines verdict logic.
+# See METRICS-AND-GATES.md §7 and VERIFICATION.md §8 for gate definitions.
+
+[phase_0]
+title = "Phase 0: Foundation & gradcheck (infrastructure validation)"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+]
+# Phase 0 has no decision gates (it is purely infrastructure).
+# Verdict: PROCEED (foundation validated).
+
+[phase_1]
+title = "Phase 1: Pattern model & core invariance"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "invariance", kind = "narrow", meaning = "Encoder invariance: within >= 0.90, between <= 0.30, margin >= 0.50" },
+]
+# If any project_kill gate fails -> STOP (pattern objective is load-bearing).
+# If invariance fails but project_kill gates pass -> PROCEED (narrowed): drop encoder invariance claim.
+
+[phase_2]
+title = "Phase 2: Attractor stability & pattern retrieval"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+]
+# Phase 2 focuses on attractor stability (retrieval from corrupted code).
+# If project_kill gates fail -> STOP; else PROCEED.
+
+[phase_3]
+title = "Phase 3: Extended corpus & multilingual patterns"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+]
+# Similar structure to Phase 1/2.
+
+[phase_4]
+title = "Phase 4: Mixed-precision & efficiency"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+]
+
+[phase_5]
+title = "Phase 5: Unitary mechanism & copy task"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "calibration", kind = "narrow", meaning = "Calibration: ECE(glow) <= ECE(baseline) - 0.02, accuracy guard >= -0.5pt" },
+]
+# Phase 5 adds calibration gate.
+
+[phase_6]
+title = "Phase 6: Scaling & production"
+gates = [
+    { name = "gradcheck", kind = "infra", meaning = "Gradient checks pass for all kernels" },
+    { name = "collapse", kind = "project_kill", meaning = "Non-collapse: erank & meanstd both >= 50% of target" },
+    { name = "g0", kind = "project_kill", meaning = "Feasibility: BPB_pattern <= 1.10 × BPB_baseline" },
+    { name = "improvement", kind = "narrow", meaning = "Iso-param BPB gap: pattern < baseline - 0.02 bits/byte" },
+]
