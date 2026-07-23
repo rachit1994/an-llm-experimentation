@@ -57,7 +57,7 @@ why the whole thing runs classically. See [`05-feasibility-verdict.md`](docs/05-
 
 ## Reading order
 
-0. [`WHITEPAPER.md`](WHITEPAPER.md) — the peer-review-grade research paper (theory, derivations, capacity bounds, all calculations, references). Start here if you want the rigorous end-to-end argument; the docs below are the working dossier behind it.
+0. **[`WHITEPAPER.pdf`](WHITEPAPER.pdf)** — the peer-review-grade research paper (theory, derivations, capacity bounds, all calculations, references), typeset with fully rendered math. **Read the PDF, not the `.md`, on mobile**: GitHub's math rendering (`$...$` / `$$...$$`) has never been supported in the iOS/Android apps, so equations show as raw LaTeX source there even though they render correctly on desktop/web. [`WHITEPAPER.md`](WHITEPAPER.md) is the Markdown source (renders with math on github.com desktop; see [`docs/PDF-BUILD.md`](docs/PDF-BUILD.md) to regenerate the PDF after editing it). Start here if you want the rigorous end-to-end argument; the docs below are the working dossier behind it.
 1. [`GROUND-UP-CONSTRAINTS.md`](docs/GROUND-UP-CONSTRAINTS.md) — the charter (C1–C8). **Read this first; it binds everything.**
 2. [`00-hypothesis-decomposed.md`](docs/00-hypothesis-decomposed.md) — the thesis restated, decomposed into H1–H5.
 3. [`01-prior-art-quantum-inspired.md`](docs/01-prior-art-quantum-inspired.md) — the real field, with numbers.

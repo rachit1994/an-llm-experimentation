@@ -112,6 +112,7 @@ We evolve states by a linear map $\psi'=U\psi$ constrained to be **unitary**, $U
 
 **Proposition 1 (unitary $\mathbb{C}^d$ = structured orthogonal $\mathbb{R}^{2d}$).**
 Write $U = A + iB$ with $A,B\in\mathbb{R}^{d\times d}$, and represent $\psi=x+iy$ by the stacked real vector $\left(\begin{smallmatrix}x\\ y\end{smallmatrix}\right)\in\mathbb{R}^{2d}$. Then complex multiplication by $U$ is the real linear map
+
 $$
 M \;=\; \begin{pmatrix} A & -B\\[2pt] B & A\end{pmatrix},
 \qquad\text{and}\qquad
@@ -119,10 +120,12 @@ U^\dagger U = I \iff M^\top M = I_{2d}.
 $$
 
 *Proof.* $U^\dagger U = (A^\top - iB^\top)(A+iB) = (A^\top A + B^\top B) + i(A^\top B - B^\top A)$, so $U^\dagger U=I$ iff $A^\top A + B^\top B = I$ and $A^\top B = B^\top A$. Compute
+
 $$
 M^\top M = \begin{pmatrix} A^\top & B^\top\\ -B^\top & A^\top\end{pmatrix}\begin{pmatrix} A & -B\\ B & A\end{pmatrix}
 = \begin{pmatrix} A^\top A + B^\top B & -A^\top B + B^\top A\\ -B^\top A + A^\top B & B^\top B + A^\top A\end{pmatrix}.
 $$
+
 This equals $I_{2d}$ under exactly the same two conditions. $\qquad\blacksquare$
 
 Consequently a unitary complex layer is a real orthogonal layer with tied $2\times 2$ block structure — implementable with real tensors and differentiated by ordinary backpropagation. We parameterize $U$ three ways:
@@ -147,22 +150,27 @@ For a real loss $L$ of complex variables, the relevant update direction is the *
 ### 4.1 Two objectives, contrasted
 
 **Next-token** minimizes cross-entropy against a one-hot target:
+
 $$
 L_{\text{token}} = -\log p(x_{n+1}\mid x_{\le n}), \qquad p(\cdot\mid x_{\le n})\in\Delta^{|V|-1}.
 $$
 
 **Next-pattern** predicts the continuous latent of the next unit and matches it to a stop-gradient target in the *same* space:
+
 $$
 L_{\text{pattern}} = D\!\left(\hat z_{n+1},\ \mathrm{sg}\!\left(z_{n+1}\right)\right),
 $$
+
 where $z_{n+1}=f_\theta(\text{unit}_{n+1})$ is the encoder's pattern, $\hat z_{n+1}=g_\theta(x_{\le n})$ the predictor's guess, $D$ a distance/similarity, and $\mathrm{sg}(\cdot)$ the stop-gradient. The target lives in pattern space, so prediction is dense: every coordinate of $z$ carries gradient, rather than the single "which symbol" bit of $L_{\text{token}}$.
 
 ### 4.2 The collapse failure mode (formal)
 
 $L_{\text{pattern}}$ admits a **trivial minimizer**: any constant encoder $f_\theta\equiv c$ makes $\hat z = z = c$ and $D=0$, learning nothing. More generally the objective is minimized by any **low-rank** degenerate solution. We therefore monitor the **effective rank** (participation ratio) of the matrix $Z\in\mathbb{R}^{n\times d}$ of predicted patterns over a held-out set. If $\sigma_1\ge\cdots\ge\sigma_d\ge 0$ are its singular values,
+
 $$
 \mathrm{erank}(Z) = \frac{\left(\sum_i \sigma_i\right)^2}{\sum_i \sigma_i^2}\in[1,d],
 $$
+
 with $\mathrm{erank}=1$ signalling full collapse and $\mathrm{erank}=d$ an isotropic code. A loss curve plunging toward $0$ is, absent a rank guarantee, **evidence of collapse, not success** — this is the single most common way the objective lies to the experimenter, and instrumentation for it is wired *before* any training run (§9, H3).
 
 ### 4.3 Three anti-collapse regularizers
@@ -170,15 +178,19 @@ with $\mathrm{erank}=1$ signalling full collapse and $\mathrm{erank}=d$ an isotr
 We treat all three as switchable and comparable:
 
 **(a) JEPA + VICReg.** An **EMA target encoder** $\bar\theta \leftarrow \tau\bar\theta + (1-\tau)\theta$ produces the (stop-gradient) target, preventing target/predictor co-collapse. VICReg adds explicit variance and covariance terms:
+
 $$
 L = \underbrace{D(\hat z,\mathrm{sg}\,z)}_{\text{invariance}} \;+\; \lambda_v\sum_{j=1}^{d}\max\!\bigl(0,\ \gamma - \sqrt{\mathrm{Var}(z_{\cdot j})+\epsilon}\bigr) \;+\; \lambda_c\sum_{i\ne j}\bigl[\mathrm{Cov}(Z)\bigr]_{ij}^2 .
 $$
+
 The variance hinge forces each dimension's std above $\gamma$ (defeating the constant solution); the covariance term decorrelates dimensions (defeating low-rank).
 
 **(b) InfoNCE (contrastive).** With temperature $\tau$ and negatives $\{z^-\}$,
+
 $$
 L_{\text{InfoNCE}} = -\log\frac{\exp\!\bigl(\mathrm{sim}(\hat z, z^+)/\tau\bigr)}{\sum_{z^-}\exp\!\bigl(\mathrm{sim}(\hat z, z^-)/\tau\bigr)} ,
 $$
+
 whose uniformity term makes constant outputs high-loss by construction.
 
 **(c) VQ codebook.** Quantize targets to a learned codebook of $K$ codes (EMA updates + dead-code reinitialization); the predictor targets a code index, which cannot collapse without collapsing codebook usage (monitored via codebook perplexity). A side benefit is cheap readout over $K\ll|V|$ codes (§8.2).
@@ -188,25 +200,31 @@ whose uniformity term makes constant outputs high-loss by construction.
 ### 4.4 Parameter reclamation: a general calculation
 
 Consider a decoder-style body of $L$ layers at model width $d$. Standard per-layer parameter count is
+
 $$
 \underbrace{4d^2}_{W_Q,W_K,W_V,W_O} + \underbrace{8d^2}_{\text{FFN }(d\to 4d\to d)} = 12d^2 ,
 $$
+
 so the body has $12Ld^2$ parameters (layer-norm and biases are $O(d)$, negligible). A token model additionally carries a vocabulary table $|V|d$ (tied input/output). Hence the fraction of parameters spent on the vocabulary is
+
 $$
 \boxed{\,f_{\text{vocab}} = \frac{|V|d}{|V|d + 12Ld^2} = \frac{|V|}{|V| + 12Ld}\,}
 $$
+
 For $|V|=32000$, $d=512$ (so $12Ld = 6144\,L$):
 
-| depth $L$ | body $12Ld^2$ | +vocab $|V|d$ | total | $f_{\text{vocab}}$ |
+| depth $L$ | body $12Ld^2$ | +vocab $\lvert V\rvert d$ | total | $f_{\text{vocab}}$ |
 |---|---:|---:|---:|---:|
 | 4 | $12.58$M | $16.38$M | $28.97$M | **56.6%** |
 | 6 | $18.87$M | $16.38$M | $35.26$M | **46.5%** |
 | 8 | $25.17$M | $16.38$M | $41.55$M | **39.4%** |
 
 A **pattern model** predicting in the shared latent needs no $|V|d$ output projection; with raw-byte input its embedding is $256\cdot 512\approx0.13$M (negligible). At $L=4$ it is therefore $\approx 12.7$M versus the token model's $28.97$M — a factor
+
 $$
 28.97/12.71 = 2.28 \approx 2.3\times
 $$
+
 smaller, entirely by reclaiming the vocabulary table. At small scale this reclamation is the dominant lever, not a marginal one; the "$\sim 46\%$" headline is the $L=6$ instance of the formula above. This is the quantitative core of the pattern-as-token efficiency claim, supported by the same-size wins of [6, 7].
 
 ---
@@ -227,24 +245,30 @@ We separate two questions that are routinely conflated, differing by roughly nin
 | $16$-level analog | $9$ | $16^9=2^{36}\approx6.87\times10^{10}$ | each node $\in\{0,\dots,15\}$ |
 
 Pushing sparsity: a $2\%$-sparse $512$-node code names
+
 $$
 \binom{512}{10} = \frac{\prod_{j=0}^{9}(512-j)}{10!} \approx \frac{512^{10}\,e^{-45/512}}{3.6288\times10^{6}} \approx \frac{(1.24\times10^{27})(0.916)}{3.63\times10^{6}} \approx 3.1\times10^{20}
 $$
+
 distinct patterns. Naming is not the bottleneck.
 
 ### 5.2 Johnson–Lindenstrauss: near-orthogonal packing is exponential in $d$
 
 Naming assumes symbolic distinctness; for a *distributed* code we care how many patterns are mutually **distinguishable** (near-orthogonal). For independent uniform unit vectors $u,v\in S^{d-1}$, the inner product concentrates at $0$ with sub-Gaussian tails,
+
 $$
 \Pr\!\bigl[\,|\langle u,v\rangle| > \epsilon\,\bigr] \le 2\exp\!\left(-\tfrac{d\epsilon^2}{2}\right).
 $$
+
 By the probabilistic method, sampling $n$ random vectors and union-bounding over $\binom{n}{2}<n^2/2$ pairs, all pairwise inner products are $\le\epsilon$ with positive probability whenever $n^2\exp(-d\epsilon^2/2)<1$, i.e.
+
 $$
 \boxed{\,n \lesssim \exp\!\left(\tfrac{\epsilon^2 d}{4}\right).\,}
 $$
+
 The packing is exponential in $d$, with a base set by the tolerance $\epsilon$ (note the per-pair standard deviation is $1/\sqrt d$, so for $d=512$ it is $\approx0.044$ and $\epsilon$ is measured in a few of these units):
 
-| $\epsilon$ (max $|{\langle\cdot,\cdot\rangle}|$) | $n\approx e^{\epsilon^2 d/4}$, $d{=}512$ |
+| $\epsilon$ (max $\lvert\langle\cdot,\cdot\rangle\rvert$) | $n\approx e^{\epsilon^2 d/4}$, $d{=}512$ |
 |---:|---:|
 | $0.2$ | $1.7\times10^{2}$ |
 | $0.3$ | $1.0\times10^{5}$ |
@@ -256,25 +280,33 @@ This is a (loose) existence lower bound; it establishes the *headroom* that make
 ### 5.3 Storage capacity: naming $\ne$ storing
 
 *How many patterns can be stored as **reliable attractors**, so that a noisy cue for concept $c$ retrieves $\xi_c$?* This is a strictly harder question, and the classical answer is sobering. The Amit–Gutfreund–Sompolinsky analysis of the Hopfield model [9] gives a critical capacity
+
 $$
 P_{\max} \approx 0.138\,N .
 $$
+
 To store $P=3.6\times10^{10}$ attractors classically would require
+
 $$
 N = \frac{P}{0.138} = \frac{3.6\times10^{10}}{0.138} \approx 2.6\times10^{11}\ \text{neurons},
 $$
+
 i.e. $\sim 260$ billion neurons and $N^2/2\approx 3.4\times10^{22}$ weights — infeasible by any measure. **If "store concepts as attractors" meant classical Hopfield, the entire capacity story would collapse:** hundreds of billions of nodes to *store* what a few hundred can *name*.
 
 ### 5.4 Resolution: modern Hopfield = attention
 
 Modern Hopfield networks [10] replace the quadratic energy with a log-sum-exp energy, yielding **exponential** storage capacity in the representation dimension (for well-separated binary patterns, $\sim 2^{d/2}$), retrieval in a **single** update, and an update rule identical to attention:
+
 $$
 \mathrm{retrieve}(\xi) = X\,\mathrm{softmax}\!\bigl(\beta\,X^\top\xi\bigr), \qquad \beta = 1/\sqrt d,
 $$
+
 with $X$ the stored patterns as columns. Inverting the capacity bound, storing $P=3.6\times10^{10}$ patterns needs only
+
 $$
 2^{d/2}\ge P \iff d \ge 2\log_2 P = 2\times 35.07 \approx 70,
 $$
+
 so a representation of a few *hundred* dimensions (for margin) suffices, with an associative matrix of $d^2$ weights ($\approx 0.26$M for $d=512$, $\sim 1$ MB in fp32) that is **independent of the number of stored patterns** because patterns superpose additively. The capacity lives in the superposition, not in an enumerated table; concepts are never listed. This resolution — keep the combinatorial *naming* intuition, reject the classical $0.138N$ *storage* model, adopt modern-Hopfield/attention — is the crux of the capacity analysis and directly connects C3 to the same attention primitive used elsewhere in the model.
 
 ---
@@ -284,25 +316,33 @@ so a representation of a few *hundred* dimensions (for margin) suffices, with an
 ### 6.1 Hebbian deepening and a Born-consistent prior
 
 On each encounter of concept $c$ with sparse pattern $\xi_c$ we update
+
 $$
 W \leftarrow W + \eta\,\xi_c\xi_c^\top, \qquad n_c \leftarrow n_c + 1,
 $$
+
 deepening $c$'s basin (Hebbian well-deepening) and incrementing an evidence count. We define **brightness** by a Weber–Fechner (log) law with salience weighting and homeostatic normalization (§6.3):
+
 $$
 \pi_c = \frac{\log(1+n_c)\cdot \mathrm{idf}(c)}{\sum_{c'}\log(1+n_{c'})\cdot \mathrm{idf}(c')} .
 $$
+
 Brightness is simultaneously a **prior**. To make prior probability track brightness, $p(c)\propto\pi_c$, the *amplitude* must scale as
+
 $$
 |\alpha_c| \propto \sqrt{\pi_c},
 $$
+
 because the Born rule gives $p(c)=|\alpha_c|^2$. The glow layer is thus Born-consistent by construction rather than bolted on.
 
 ### 6.2 Confidence as a retrieval margin
 
 Brightness is a prior; **confidence** is decisiveness of retrieval — the top-1/top-2 margin,
+
 $$
 \text{conf} = \pi_{(1)} - \pi_{(2)} ,
 $$
+
 which is directly inspectable: for any emission one can print how close the runner-up was. A usable abstention rule is a single inequality: **emit if $\text{conf}>\tau$, else hedge.** For an on-device model that cannot defer to a larger cloud model, a built-in, calibrated "I don't know" is the product.
 
 ### 6.3 The frequency-runaway instability and its mandatory fix
@@ -318,9 +358,11 @@ Omitting any one restores the runaway. This is not tuning; it is load-bearing �
 ### 6.4 Calibration metric
 
 We evaluate calibration with the **Expected Calibration Error** over $M$ confidence bins $\{B_m\}$:
+
 $$
 \mathrm{ECE} = \sum_{m=1}^{M}\frac{|B_m|}{n}\,\bigl|\,\mathrm{acc}(B_m) - \mathrm{conf}(B_m)\,\bigr| .
 $$
+
 The product claim reduces to one testable inequality (H5): a glow model must achieve $\mathrm{ECE}(\text{glow}) < \mathrm{ECE}(\text{no-glow})$ on the **held-out** split; otherwise brightness is uncorrelated with correctness and we narrow the claim from "calibrated confidence" to "salience weighting."
 
 ---
@@ -332,13 +374,17 @@ Three walls and one structural feature make a fault-tolerant quantum computer th
 ### 7.1 Barren plateaus
 
 For wide parameterized quantum circuits that approximate $2$-designs, the loss-gradient variance vanishes exponentially in the qubit count $n$ [11]:
+
 $$
 \mathrm{Var}\!\left[\partial_\theta L\right] \sim 2^{-\alpha n}, \qquad \alpha>0.
 $$
+
 The consequence is a *sampling* catastrophe. Estimating a gradient component from measurements incurs shot noise of order $1/\sqrt{M}$ for $M$ circuit repetitions; resolving a signal whose standard deviation is $\sim 2^{-\alpha n/2}$ to fixed signal-to-noise requires
+
 $$
 M \gtrsim \frac{1}{\mathrm{Var}[\partial_\theta L]} \sim 2^{\alpha n}
 $$
+
 repetitions — exponentially many measurements exactly where a language model needs many parameters. Our classical complex network has ordinary, exact (to float precision) gradients with no such scaling.
 
 ### 7.2 Dequantization
@@ -352,12 +398,15 @@ The rigorous exception [13] constructs a dataset for which, *assuming the classi
 ### 7.4 The simulability pincer
 
 The deepest obstruction is a pincer [14]:
+
 $$
 \text{trainable (plateau-free)} \Rightarrow \text{classically simulable} \Rightarrow \text{no quantum advantage},
 $$
+
 $$
 \text{not classically simulable} \Rightarrow \text{barren plateau} \Rightarrow \text{not trainable}.
 $$
+
 The regime that is trainable is the regime a classical machine can already reproduce. If the model trains at all, run it classically.
 
 ### 7.5 Measurement collapse: the screenshot is a classical feature
@@ -371,9 +420,11 @@ A central deliverable (§5, §6) is the **whole-state screenshot**: read every a
 ### 8.1 Arithmetic overhead of complex layers
 
 A real linear map $y=Wx$, $W\in\mathbb{R}^{d\times d}$, costs $d^2$ multiplies and $d(d-1)$ adds, $\approx 2d^2$ FLOPs. A complex multiply requires $4$ real multiplies and $2$ real adds (naive) or $3$ multiplies and $5$ adds (Karatsuba/Gauss). Counting multiplies — the dominant cost — a complex-valued layer at equal width $d$ costs
+
 $$
 \text{FLOP}_{\mathbb{C}} \approx (3\text{–}4)\times \text{FLOP}_{\mathbb{R}} .
 $$
+
 Unitary parameterization adds an $O(d^3)$ term (Cayley) or $O(d^2)$ (Givens) per unitary layer. All overheads are polynomial, deterministic, and — as shown next — M1-affordable. Fair comparisons therefore hold *parameters* equal and report cost on the Pareto axis (§9).
 
 ### 8.2 The generation wall and its mitigations
@@ -382,10 +433,10 @@ Born-rule generation computes $p_k=|\langle e_k\mid O\psi\rangle|^2$ for every $
 
 | mitigation | mechanism | params / MACs per step | factor vs $16.38$M |
 |---|---|---:|---:|
-| full Born | $O\in\mathbb{R}^{|V|\times d}$ | $16.38$M | $1\times$ |
-| low-rank $r{=}64$ | $O=UV^\top$, $r(|V|+d)$ | $2.08$M | $7.9\times$ |
+| full Born | $O\in\mathbb{R}^{\lvert V\rvert\times d}$ | $16.38$M | $1\times$ |
+| low-rank $r{=}64$ | $O=UV^\top$, $r(\lvert V\rvert+d)$ | $2.08$M | $7.9\times$ |
 | VQ codebook $K{=}1024$ | readout over $K$ codes, $Kd$ | $0.52$M | $31\times$ |
-| hierarchical | balanced tree, $d\log_2|V|$ | $7.66$k | $\sim 2140\times$ |
+| hierarchical | balanced tree, $d\log_2\lvert V\rvert$ | $7.66$k | $\sim 2140\times$ |
 | tied I/O | reuse input table | $0$ extra | (removes $16.38$M) |
 
 Coconut-style feedback [6] further **amortizes** the wall: feeding the continuous predicted pattern back in runs generation in pattern space and pays the $O(|V|d)$ readout only at emission points, not every internal step. If no mitigation reaches parity, we narrow to encoder-only tasks (classification/retrieval), where the evidence [1,3] is already strong.
@@ -393,9 +444,11 @@ Coconut-style feedback [6] further **amortizes** the wall: feeding the continuou
 ### 8.3 Parameter and memory budget (the M1 fit)
 
 Using §4.4 at $L=4$, $d=512$: the pattern model is $\approx 12.6$M parameters. Its training footprint in fp32 with Adam (which stores first and second moments $m,v$):
+
 $$
 \underbrace{12.6\text{M}\times 4\,\text{B}}_{\text{params }50.4\,\text{MB}} + \underbrace{2\times 12.6\text{M}\times 4\,\text{B}}_{\text{Adam }m,v\ 100.8\,\text{MB}} \approx 151\,\text{MB},
 $$
+
 plus gradients ($\approx 50$ MB) and batch-dependent activations. The associative memory is a single $d\times d$ matrix, $512^2\times 4\,\text{B}\approx 1.0$ MB, independent of concept count. Explicit codebooks, if materialized, scale as $Kd\times4$ B: $K=10^4\Rightarrow 0.02$ GB, $K=10^6\Rightarrow 2.0$ GB (the latter is the M1 ceiling — hence we default to the superposed matrix and small $K$, and never materialize $3.6\times10^{10}$ of anything). All figures sit within an $8$–$16$ GB unified-memory M1.
 
 ### 8.4 Training-time estimate (shown, not asserted)
@@ -525,7 +578,7 @@ Amplitude Language Models recombine four established but individually promising 
 | $\mathrm{erank}(Z)$ | effective rank (participation ratio) of $Z$ |
 | $N,k$ | code size; number of active (sparse) nodes |
 | $\pi_c,\ n_c$ | brightness of concept $c$; its encounter count |
-| $|V|,d,L$ | vocabulary size; model width; depth |
+| $\lvert V\rvert,d,L$ | vocabulary size; model width; depth |
 
 ## Appendix B — Key numerical results at a glance
 
@@ -543,4 +596,4 @@ Amplitude Language Models recombine four established but individually promising 
 | pattern-model training footprint | $\sim151$ MB | §8.3 |
 | barren-plateau measurement cost | $M\sim2^{\alpha n}$ | §7.1 |
 | complex-layer arithmetic overhead | $3$–$4\times$ real | §8.1 |
-| Born-generation readout cost | $O(|V|d)=16.38$M MAC/step | §8.2 |
+| Born-generation readout cost | $O(\lvert V\rvert d)=16.38$M MAC/step | §8.2 |
