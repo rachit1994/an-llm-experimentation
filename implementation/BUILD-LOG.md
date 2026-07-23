@@ -61,3 +61,13 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   and its anti-vacuity canary (`test_phase_report_can_say_stop`) are sound and were kept.
   Post-merge on `main`: **cargo test --workspace = 71 passed / 0 failed**; fmt/clippy clean; a
   full `cargo test` now leaves `reports/PHASE-0.md` intact.
+- **`build/phase1-born-head` MERGED to `main`** (`ab8218c`) — the differentiable Born-rule byte
+  head (T1.1). Key move: on real amplitudes the Born distribution `p_i = a_i²/Σa_j²` is exactly
+  `softmax(ln a_i²)`, so the pattern model's BPB is `cross_entropy(log_softmax(born_logits(a)))`,
+  reusing the already-gradchecked softmax/CE backward; `born_logits(a) = ln(a²+ε)` is the one new
+  elementwise tape op (ε=1e-6 stability floor). Four hand-derived-oracle tests: op-level FD (linear
+  scalarizer to avoid the squared-log stiffness near small `a`), exact oracle-matches-tape,
+  anti-vacuity canary, and an end-to-end Born-NLL head gradcheck. Watched the tape-dependent tests
+  go RED on a deliberately-broken derivative before green (Rule 4). **cargo test --workspace = 75
+  passed / 0 failed**; fmt/clippy clean; zero new deps. Remaining Phase-1 build (metrics, pattern
+  model + loss, KAE-Markov, G0 run) is in progress on `build/phase1-*` branches under review.
