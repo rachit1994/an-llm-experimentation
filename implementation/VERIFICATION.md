@@ -261,9 +261,23 @@ are true and shown in `results/RESULTS.md` (generated, §4.2):
    (§4.2), over the required `≥ 5` seeds.
 7. **Coverage ratchet**: line coverage of the phase's crate does not decrease, and the count of `nc_*`
    controls does not decrease (deleting a canary fails CI).
+8. **Worth-pursuing verdict (mechanical, not prose)**: the phase gate produces an explicit
+   **PROCEED / STOP-project / NARROW-claim** decision, *derived from the gate outcomes*, not from
+   opinion. Rule: a failed **project-kill** gate (e.g. G0 collapse or BPB > 1.10×) ⇒ **STOP** (it is not
+   worth pursuing further; the load-bearing claim is dead); a failed **narrow** gate (H1/H4/H5/Phase-5)
+   ⇒ **PROCEED (narrowed)** with the specific claim dropped; all gates PASS ⇒ **PROCEED**. The verdict
+   names the gate that drove it and the measured number.
+9. **Generated per-phase report**: `report --phase N` writes `reports/PHASE-N.md` — a provenance-checked
+   document showing the **actual measured numbers** (pulled from `runs/*/metrics.json` and the CI
+   summary, never hand-typed — rule 5 applies to `reports/` exactly as to `results/`), each gate's
+   threshold + PASS/FAIL, a one-line **"what it means"** per metric, the §8.8 worth-pursuing verdict,
+   and a conclusion. This is the artifact a human reviewer reads to decide, at every phase, whether to
+   keep going.
 
 If 1–4 are green but 5 or 6 fail, **the code is not working** even though the unit tests pass — this is
 exactly the situation the user warned about, and the DoD makes it a visible FAIL, not a silent pass.
+Items 8–9 are mandatory at **every** phase gate: no phase advances without an evidence-derived
+worth-pursuing verdict and a generated `reports/PHASE-N.md`.
 
 ---
 

@@ -47,8 +47,9 @@ easily violated while everything looks green.
    is green before you write the code tests nothing — rewrite it.
 
 5. **Never type, predict, or transcribe a measured number into a Markdown/text file.** Numbers exist
-   only in `runs/*/metrics.json` and reach docs only through the generated `results/RESULTS.md`. Cite
-   "see RESULTS.md"; do not paste the digits. CI (`verify-results`) reverts hand-edited numbers.
+   only in `runs/*/metrics.json` and reach docs only through **generated** files — `results/RESULTS.md`
+   and the per-phase `reports/PHASE-N.md` (both produced by `report`). Cite "see RESULTS.md / the phase
+   report"; do not paste the digits by hand. CI (`verify-results`) reverts hand-edited numbers in either.
 
 6. **Never weaken a gate to pass.** Do not edit `gates.toml`/`gates.lock`, do not loosen a tolerance,
    do not delete or `#[ignore]` a failing test or a negative control. A failing gate is a **finding**
@@ -119,6 +120,13 @@ A unit of work is done only when its task card's Definition-of-Done (see the pha
 broken variants as designed **and** the catalog mutants are killed **and** the known-answer end-to-end
 reaches its independently-computed target **and** the gate PASSes from a provenance-checked artifact.
 `cargo test` being green is the floor, not the finish line.
+
+**At every phase gate, two extra deliverables are mandatory** (VERIFICATION.md §8, items 8–9):
+(a) an evidence-derived **worth-pursuing verdict** — PROCEED / STOP-project / NARROW-claim, computed
+from the gate outcomes, naming the gate and the measured number that drove it; and
+(b) a **generated `reports/PHASE-N.md`** (`report --phase N`) showing the actual measured numbers, each
+gate's threshold + PASS/FAIL, a one-line "what it means" per metric, the verdict, and a conclusion.
+A phase does not advance without both. Is it worth continuing? The report must answer it, from numbers.
 
 ## How to report back to the lead
 
