@@ -6,7 +6,10 @@ license.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# TODO(Phase 0): add deps you need, pinned. Suggested: rustfft, rand, rand_chacha.
+rand = "0.10.2"
+rand_chacha = "0.10.0"
+rustfft = "6.4.1"
 
 [dev-dependencies]
-# TODO(Phase 0): approx, proptest for KATs and property tests.
+approx = "0.5.1"
+proptest = "1.11.0"

@@ -11,8 +11,8 @@
 //! a KAT + (if it has params) a gradcheck is not "done" (see ../VERIFICATION.md §8).
 #![allow(dead_code)]
 
-pub mod complex;
 pub mod bind;
 pub mod born;
-pub mod unitary;
+pub mod complex;
 pub mod hopfield;
+pub mod unitary;

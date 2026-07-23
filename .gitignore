@@ -38,6 +38,8 @@ scratch/
 tmp/
 *.tmp
 .cache/
+mutants.out/
+mutants.out.old/
 
 # ---- Agent worktrees / harness scratch (never commit; agents deliver via their own branches) ----
 .claude/

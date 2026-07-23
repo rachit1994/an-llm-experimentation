@@ -1,0 +1,58 @@
+{
+  "runs": [
+    {
+      "run_id": "654afeaf8b3b4048",
+      "git_sha": "5c766e009611d5afad46cf2c363cdf66ef681269",
+      "dataset_sha256": "none",
+      "seed": 0,
+      "backend": "cpu-scalar-oracle",
+      "metrics": {
+        "gradcheck_max_rel_err": 9.999663932131064e-13
+      },
+      "gates": [
+        {
+          "name": "gradcheck",
+          "outcome": "PASS",
+          "measured": 9.999663932131064e-13,
+          "threshold": 0.0001
+        },
+        {
+          "name": "g0",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        },
+        {
+          "name": "collapse",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        },
+        {
+          "name": "improvement",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        },
+        {
+          "name": "invariance",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        },
+        {
+          "name": "calibration",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        },
+        {
+          "name": "phase",
+          "outcome": "N/A",
+          "measured": null,
+          "threshold": null
+        }
+      ]
+    }
+  ]
+}
