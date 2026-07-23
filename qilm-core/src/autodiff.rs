@@ -77,6 +77,10 @@ enum Op {
         /// true when `b` is a `(1, cols)` bias broadcast over `a`'s rows.
         broadcast_b: bool,
     },
+    MatMul {
+        a: NodeId,
+        b: NodeId,
+    },
 }
 
 struct Node {
@@ -199,6 +203,40 @@ impl Tape {
         }
     }
 
+    /// Matrix multiply: `a: (m,k)`, `b: (k,n)` -> `(m,n)`.
+    pub fn matmul(&mut self, a: NodeId, b: NodeId) -> NodeId {
+        let a_shape = self.nodes[a].shape;
+        let b_shape = self.nodes[b].shape;
+        assert_eq!(
+            a_shape.cols, b_shape.rows,
+            "Tape::matmul: inner dims mismatch, a={a_shape:?} b={b_shape:?}"
+        );
+        let (m, k, n) = (a_shape.rows, a_shape.cols, b_shape.cols);
+        let a_val = &self.nodes[a].value;
+        let b_val = &self.nodes[b].value;
+        let mut value = vec![0.0; m * n];
+        for i in 0..m {
+            for kk in 0..k {
+                let aik = a_val[i * k + kk];
+                if aik == 0.0 {
+                    continue;
+                }
+                for j in 0..n {
+                    value[i * n + j] += aik * b_val[kk * n + j];
+                }
+            }
+        }
+        self.push(value, Shape::mat(m, n), Op::MatMul { a, b })
+    }
+
+    /// `x·W + b`: `x: (batch,in)`, `w: (in,out)`, `b: (1,out)` broadcast over
+    /// the batch. Built from `matmul` + `add`, so its gradient is exactly the
+    /// composition of theirs (nothing new to prove beyond those two ops).
+    pub fn linear(&mut self, x: NodeId, w: NodeId, b: NodeId) -> NodeId {
+        let xw = self.matmul(x, w);
+        self.add(xw, b)
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -258,6 +296,37 @@ impl Tape {
                 } else {
                     self.accumulate(b, &node_grad);
                 }
+            }
+            Op::MatMul { a, b } => {
+                let a_shape = self.nodes[a].shape;
+                let b_shape = self.nodes[b].shape;
+                let (m, k, n) = (a_shape.rows, a_shape.cols, b_shape.cols);
+                let a_val = self.nodes[a].value.clone();
+                let b_val = self.nodes[b].value.clone();
+
+                // Y = A(m,k) * B(k,n); dA = dY * B^T (m,k); dB = A^T * dY (k,n).
+                let mut ga = vec![0.0; m * k];
+                for i2 in 0..m {
+                    for p in 0..k {
+                        let mut s = 0.0;
+                        for j in 0..n {
+                            s += node_grad[i2 * n + j] * b_val[p * n + j];
+                        }
+                        ga[i2 * k + p] = s;
+                    }
+                }
+                let mut gb = vec![0.0; k * n];
+                for p in 0..k {
+                    for j in 0..n {
+                        let mut s = 0.0;
+                        for i2 in 0..m {
+                            s += a_val[i2 * k + p] * node_grad[i2 * n + j];
+                        }
+                        gb[p * n + j] = s;
+                    }
+                }
+                self.accumulate(a, &ga);
+                self.accumulate(b, &gb);
             }
         }
     }
