@@ -84,6 +84,14 @@ enum Op {
     Tanh {
         x: NodeId,
     },
+    LogSoftmax {
+        x: NodeId,
+    },
+    CrossEntropy {
+        logp: NodeId,
+        /// one target class index per row of `logp`.
+        targets: Vec<usize>,
+    },
 }
 
 struct Node {
@@ -247,6 +255,55 @@ impl Tape {
         self.push(value, shape, Op::Tanh { x })
     }
 
+    /// Row-wise, numerically-stable log-softmax: subtract each row's max
+    /// before exponentiating (VERIFICATION.md §3's stability requirement).
+    pub fn log_softmax(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let xv = &self.nodes[x].value;
+        let mut value = vec![0.0; xv.len()];
+        for r in 0..shape.rows {
+            let row = &xv[r * shape.cols..(r + 1) * shape.cols];
+            let max = row.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let sum_exp: f64 = row.iter().map(|v| (v - max).exp()).sum();
+            let log_sum_exp = sum_exp.ln() + max;
+            for c in 0..shape.cols {
+                value[r * shape.cols + c] = xv[r * shape.cols + c] - log_sum_exp;
+            }
+        }
+        self.push(value, shape, Op::LogSoftmax { x })
+    }
+
+    /// Mean negative log-likelihood of the target class, one target per row
+    /// of `logp` (which must already be a `log_softmax` output). This is
+    /// what BPB is built on (implementation/METRICS-AND-GATES.md §1).
+    pub fn cross_entropy(&mut self, logp: NodeId, targets: &[usize]) -> NodeId {
+        let shape = self.nodes[logp].shape;
+        assert_eq!(
+            targets.len(),
+            shape.rows,
+            "Tape::cross_entropy: need exactly one target per row"
+        );
+        let lv = &self.nodes[logp].value;
+        let mut loss = 0.0;
+        for (r, &t) in targets.iter().enumerate() {
+            assert!(
+                t < shape.cols,
+                "Tape::cross_entropy: target class {t} out of range (0..{})",
+                shape.cols
+            );
+            loss += -lv[r * shape.cols + t];
+        }
+        loss /= shape.rows as f64;
+        self.push(
+            vec![loss],
+            Shape::mat(1, 1),
+            Op::CrossEntropy {
+                logp,
+                targets: targets.to_vec(),
+            },
+        )
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -349,6 +406,38 @@ impl Tape {
                     .map(|(g, y)| g * (1.0 - y * y))
                     .collect();
                 self.accumulate(x, &gx);
+            }
+            Op::LogSoftmax { x } => {
+                // y = log_softmax(x); softmax(x)_c = exp(y_c) (no need to
+                // revisit x's own value). Standard log-softmax backward:
+                // dL/dx_i = dL/dy_i - softmax(x)_i * sum_j dL/dy_j (per row).
+                let node_value = self.nodes[i].value.clone();
+                let shape = self.nodes[i].shape;
+                let cols = shape.cols;
+                let mut gx = vec![0.0; node_value.len()];
+                for r in 0..shape.rows {
+                    let row_grad = &node_grad[r * cols..(r + 1) * cols];
+                    let row_y = &node_value[r * cols..(r + 1) * cols];
+                    let sum_g: f64 = row_grad.iter().sum();
+                    for c in 0..cols {
+                        let softmax_c = row_y[c].exp();
+                        gx[r * cols + c] = row_grad[c] - softmax_c * sum_g;
+                    }
+                }
+                self.accumulate(x, &gx);
+            }
+            Op::CrossEntropy { logp, targets } => {
+                // L = -mean_r logp[r, target[r]]; dL/dlogp[r,c] =
+                // -(1/rows) if c == target[r] else 0, scaled by the
+                // incoming node_grad[0] (the loss node is a scalar).
+                let logp_shape = self.nodes[logp].shape;
+                let (rows, cols) = (logp_shape.rows, logp_shape.cols);
+                let mut g = vec![0.0; rows * cols];
+                let scale = node_grad[0] / rows as f64;
+                for (r, &t) in targets.iter().enumerate() {
+                    g[r * cols + t] = -scale;
+                }
+                self.accumulate(logp, &g);
             }
         }
     }
