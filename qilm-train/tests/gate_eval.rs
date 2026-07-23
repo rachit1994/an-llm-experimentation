@@ -26,11 +26,14 @@ fn collapse_passes_when_both_ratios_clear_mins() {
     ));
 }
 
+/// Anti-vacuity canary for the collapse gate: it must be able to say NO. A
+/// metric with erank below its min (meanstd fine) must FAIL, and the binding
+/// (reported) sub-metric must be the erank ratio (the one that's under). Paired
+/// with `collapse_passes_when_both_ratios_clear_mins`, this proves the gate
+/// discriminates rather than rubber-stamping (AGENTS.md Rule 2).
 #[test]
-fn collapse_fails_when_erank_ratio_below_min() {
+fn collapse_gate_can_say_no_when_erank_below_min() {
     let g = gates();
-    // erank below its min, meanstd fine → FAIL, and the binding (reported)
-    // sub-metric must be the erank ratio (the one that's under).
     let m = json!({ "erank_ratio": 0.10, "meanstd_ratio": 0.90 });
     match evaluate("collapse", &g, &m).unwrap() {
         GateOutcome::Fail { measured, .. } => {

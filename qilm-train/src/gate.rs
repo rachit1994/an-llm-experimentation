@@ -139,15 +139,16 @@ pub fn gates_lock_matches(gates_toml: &Path, gates_lock: &Path) -> io::Result<bo
     Ok(computed == locked.trim())
 }
 
-/// Evaluate the single gate Phase 0 actually produces a number for: the
-/// "G-stack" gradcheck gate — `max_rel_err < gates.toml [gradcheck].max_rel_err`.
-/// `metrics` is the `"metrics"` object of a `RunRecord` (see provenance.rs);
-/// this looks up `metrics["gradcheck_max_rel_err"]`.
+/// Evaluate a named gate against the `"metrics"` object of a `RunRecord` (see
+/// provenance.rs). Implemented so far:
+///   - `gradcheck` (Phase 0): `gradcheck_max_rel_err < [gradcheck].max_rel_err`.
+///   - `collapse` (H3): `erank_ratio` and `meanstd_ratio` both clear their mins.
+///   - `g0` (H2): `bpb_ratio <= [g0].bpb_ratio_max`.
 ///
-/// Other gate names are recognized (so the dispatch/threshold plumbing exists
-/// for Phase 1+ to extend) but return `MissingMetric` until a real model
-/// produces the corresponding field — `gate()` never fabricates a PASS/FAIL
-/// for a metric that isn't actually present.
+/// The remaining names (`improvement`, `invariance`, `calibration`, `phase`)
+/// are recognized so the dispatch/threshold plumbing exists, but return
+/// `MissingMetric` until their phase produces the field — `gate()` never
+/// fabricates a PASS/FAIL for a metric that isn't actually present.
 pub fn evaluate(
     name: &str,
     gates: &GatesConfig,

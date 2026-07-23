@@ -3,4 +3,5 @@
 //! the metric code (Rule 1) and (b) a paired anti-vacuity canary proving it can
 //! say "no" (Rule 2). See implementation/tests/PHASE-1.md T1.3/T1.4.
 
+pub mod bpb;
 pub mod collapse;
