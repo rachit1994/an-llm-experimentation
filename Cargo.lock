@@ -311,6 +311,9 @@ version = "0.1.0"
 dependencies = [
  "qilm-core",
  "qilm-data",
+ "qilm-oracle",
+ "rand 0.10.2",
+ "rand_chacha 0.10.0",
  "serde",
  "serde_json",
  "sha2",
