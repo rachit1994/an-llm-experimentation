@@ -7,7 +7,7 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 | phase | scope | agent(s) | status | gate result (see RESULTS.md) |
 |---|---|---|---|---|
 | 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | **DONE (gate PASS)** | gradcheck PASS (9.99e-13 < 1e-4); bind.rs mutation 73/73 viable caught, 0 survivors |
-| 1 | next-pattern predictor + L_inv + G0 | Sonnet (autodiff, report-gen) | **IN-PROGRESS** | infra landed (autodiff tape gradchecked; per-phase report + verdict); model + G0 run pending |
+| 1 | next-pattern predictor + L_inv + G0 | lead (single-threaded after a quota break) | **IN-PROGRESS** | infra + metrics landed (autodiff tape; born head; collapse/BPB metrics + gate arms + controls); pattern model + loss + G0 run pending |
 | 2 | attractor memory + encoder invariance (H4) | — | not started | — |
 | 3 | glow / calibration (H5) | — | not started | — |
 | 4 | complex/phase ablation (H1) | — | not started | — |
@@ -71,3 +71,21 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   go RED on a deliberately-broken derivative before green (Rule 4). **cargo test --workspace = 75
   passed / 0 failed**; fmt/clippy clean; zero new deps. Remaining Phase-1 build (metrics, pattern
   model + loss, KAE-Markov, G0 run) is in progress on `build/phase1-*` branches under review.
+- **QUOTA BREAK + process correction.** A background Sonnet build agent running concurrently with
+  the lead (Opus) exhausted the shared session quota and died having pushed nothing — all its work
+  lost. Corrected: the lead now builds the rest single-threaded (no concurrent quota-consuming
+  agents) and **commits + pushes after every increment** so a break can never lose work again.
+  cargo-mutants (CPU-only, no model quota) stays in use. The autodiff mutation pass finished during
+  this: **169 mutants → 166 caught, 0 missed, 3 unviable** (zero survivors — the gradcheck suite
+  kills every viable mutation of the tape).
+- **`build/phase1-metrics` MERGED to `main`** (`ffb6b7f`) — T1.3/T1.4 metrics + the byte baseline,
+  built by the lead single-threaded in three pushed increments: (1) collapse metric — `erank` via a
+  hand-rolled cyclic Jacobi symmetric eigensolver (no linear-algebra dep), `meanstd`, and the
+  target-relative ratios, with a KAT whose eigenvalues/erank are all hand-computed and a paired
+  `kat_erank_can_say_no` canary; (2) the H3/H2 gate arms in `gate.rs` plus `nc_collapse` (a constant
+  encoder drives erank_ratio ≈ 0.03 and FAILS H3, a healthy encoder PASSES); (3) the BPB metric +
+  param-matched byte-softmax baseline + `nc_untrained_bpb` (random init scores ≥ 7.5 ≈ log2 256) +
+  `nc_param_match`. Watched the KATs go RED with the Jacobi sweeps disabled before green (Rule 4).
+  **cargo test --workspace = 94 passed / 0 failed**; fmt/clippy/anti-vacuity-lint clean; zero new
+  deps. Still pending for the Phase-1 gate: the Born-head pattern model + `L_inv`/anti-collapse loss,
+  the `kae_markov` entropy-floor end-to-end, and the G0 run over ≥5 seeds → generated PHASE-1 report.
