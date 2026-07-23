@@ -7,7 +7,7 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 | phase | scope | agent(s) | status | gate result (see RESULTS.md) |
 |---|---|---|---|---|
 | 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | **DONE (gate PASS)** | gradcheck PASS (9.99e-13 < 1e-4); bind.rs mutation 73/73 viable caught, 0 survivors |
-| 1 | next-pattern predictor + L_inv + G0 | — | not started | — |
+| 1 | next-pattern predictor + L_inv + G0 | Sonnet (autodiff, report-gen) | **IN-PROGRESS** | infra landed (autodiff tape gradchecked; per-phase report + verdict); model + G0 run pending |
 | 2 | attractor memory + encoder invariance (H4) | — | not started | — |
 | 3 | glow / calibration (H5) | — | not started | — |
 | 4 | complex/phase ablation (H1) | — | not started | — |
@@ -41,3 +41,23 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 - **Phase 1 STARTED:** first increment `build/phase1-autodiff` (Sonnet) — an index-tape
   reverse-mode autodiff ported from micrograd (zero new deps, every op finite-diff-gradchecked),
   pushing to origin incrementally for human review (AGENTS.md rule 13).
+- **`build/phase1-autodiff` MERGED to `main`** (`921e555`): index-tape reverse-mode autograd
+  (add / matmul / linear / tanh / log_softmax / cross_entropy / sum_squares), every op
+  finite-diff-gradchecked < 1e-4, plus an MLP end-to-end composition check. Reproduced from a
+  clean detached worktree: **66 passed / 0 failed**, zero new deps, fmt/clippy/anti-vacuity-lint
+  all clean. The 3-way merge preserved the per-phase-verdict governance added in `d242229`.
+- **`build/phase1-reports` MERGED to `main`** (`a5e0c9e`) — but **only after review caught a
+  fabricated number**, exactly the failure mode AGENTS.md exists to prevent. The committed
+  `reports/PHASE-0.md` reported gradcheck `5e-7`, which was the value of a *tempdir test fixture*
+  in `report_harness.rs`, not a measured result (the branch commit even called it "real test
+  metrics"). The real Phase-0 gradcheck, produced by the `selfcheck` binary and provenance-
+  stamped, is in the regenerated `reports/PHASE-0.md` (deterministic across runs; see that file,
+  not this log — rule 5). Corrected in the same integration: (1) regenerated the report from a
+  real `selfcheck` run so number/git_sha/run_id are all genuine; (2) fixed a test that
+  wrote-then-deleted the committed `reports/PHASE-0.md` on every `cargo test` (split the report
+  OUTPUT dir from `workspace_root` via `ReportConfig.reports_dir`; provenance stays anchored to
+  the real repo); (3) realigned `phase_spec.toml` to the canonical task-card plan (H4→P2, H5→P3,
+  H1→P4 headline gates; phases 3/4/6 had invented titles/gates). The generator's verdict logic
+  and its anti-vacuity canary (`test_phase_report_can_say_stop`) are sound and were kept.
+  Post-merge on `main`: **cargo test --workspace = 71 passed / 0 failed**; fmt/clippy clean; a
+  full `cargo test` now leaves `reports/PHASE-0.md` intact.
