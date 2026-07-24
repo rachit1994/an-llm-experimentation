@@ -4,20 +4,20 @@
 
 ## Provenance
 
-- **git_sha**: `8a85570498e8c1727857a79f8e91bcd08b500174`
+- **git_sha**: `6aa32a113267d2f81cc17221d75c1e49512f732a`
 - **run_ids**: phase1_g0
 
 ## Gate Evaluation
 
 | gate | measured | threshold | outcome | meaning |
 |---|---|---|---|---|
-| gradcheck | 0.0000002803844703424547 | 0.0001 | PASS | Finite-difference gradcheck: max rel err below tolerance for every kernel |
-| collapse | 0.013817781031980348 | 0.5 | FAIL | H3 non-collapse: effective-rank & mean-std both at least half of the target patterns' |
-| g0 | 1.2805366430955971 | 1.1 | FAIL | H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline |
+| gradcheck | 0.0000032154786410906354 | 0.0001 | PASS | Finite-difference gradcheck: max rel err below tolerance for every kernel |
+| collapse | 0.05357798542934471 | 0.5 | FAIL | H3 non-collapse: effective-rank & mean-std both at least half of the target patterns' |
+| g0 | 1.1722964328973562 | 1.1 | FAIL | H2 feasibility: pattern-model BPB within the allowed ratio of the param-matched baseline |
 
 ## Verdict
 
-**STOP**: Project-kill gate failed: `collapse` measured 0.013818 vs threshold 0.500000. The load-bearing claim is dead; do not pursue further.
+**STOP**: Project-kill gate failed: `collapse` measured 0.053578 vs threshold 0.500000. The load-bearing claim is dead; do not pursue further.
 
 ## Conclusion
 
