@@ -7,7 +7,7 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 | phase | scope | agent(s) | status | gate result (see RESULTS.md) |
 |---|---|---|---|---|
 | 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | **DONE (gate PASS)** | gradcheck PASS (9.99e-13 < 1e-4); bind.rs mutation 73/73 viable caught, 0 survivors |
-| 1 | next-pattern predictor + L_inv + G0 | lead (single-threaded) | **GATE: STOP** | G0 run (5 seeds, provenance-checked): collapse FAIL + g0 FAIL → **STOP** (see reports/PHASE-1.md). Baseline reaches the entropy floor; Born-head pattern arm collapses to the marginal. |
+| 1 | next-pattern predictor + L_inv + G0 | lead (single-threaded) | **GATE: STOP (after 1 retry)** | Two provenance-checked 5-seed G0 runs. Attempt 1 & the authorized retry (VICReg covariance + Adam + un-pinched iso-param model) both **STOP**: retry improved bpb_ratio 1.50→1.28 and erank_ratio 0.15→0.34 but collapse & g0 gates still FAIL (see reports/PHASE-1.md). Baseline reaches the entropy floor. |
 | 2 | attractor memory + encoder invariance (H4) | — | not started | — |
 | 3 | glow / calibration (H5) | — | not started | — |
 | 4 | complex/phase ablation (H1) | — | not started | — |
@@ -119,3 +119,13 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   baseline's easier softmax objective. These are candidate fixes IF a NARROWED continuation is
   authorized, but at the pre-registered iso-param config + equal-tuning budget the gate is a clean
   STOP, reported as-is (rules 6/7).
+- **AUTHORIZED SINGLE RETRY → still STOP** (`reports/PHASE-1.md` regenerated). Applied the three
+  named fixes: (1) the missing VICReg **covariance/decorrelation** term (new `transpose` tape op +
+  gradcheck; `lambda_cov` in the loss); (2) **Adam** optimizer (vs plain SGD); (3) an **un-pinched**
+  but still iso-param model (`d_emb=4, d_z=12` vs `8/8`; token `d=15`). Result improved but did not
+  clear the gate — see the generated report for the numbers (bpb_ratio and both collapse ratios all
+  moved the right way, roughly halving the collapse gap, yet g0 and collapse both still FAIL). The
+  binding failure is `meanstd_ratio` ≈ 0: byte-CE keeps finding low-magnitude `z` solutions that the
+  variance/covariance anti-collapse can't push to unit variance without hurting BPB — the core VICReg
+  balance tension, exacerbated by the tanh encoder. Verdict stands: **STOP**. This closes the
+  pre-registered retry budget; no further tuning (rule 6).
