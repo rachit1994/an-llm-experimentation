@@ -89,3 +89,18 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   **cargo test --workspace = 94 passed / 0 failed**; fmt/clippy/anti-vacuity-lint clean; zero new
   deps. Still pending for the Phase-1 gate: the Born-head pattern model + `L_inv`/anti-collapse loss,
   the `kae_markov` entropy-floor end-to-end, and the G0 run over ≥5 seeds → generated PHASE-1 report.
+- **`build/phase1-model` MERGED to `main`** (`eb3c9cd`) — the Born-head pattern model + the full
+  training loss (T1.1/T1.2), three pushed increments: (4a) `qilm-core/encoder.rs` (context bag →
+  embed+mean-pool via one matmul → tanh) + `model_pattern.rs` (encode → predict next pattern → Born
+  head → byte-CE, all in the tape so one path trains and evaluates) with `gradcheck_pattern`
+  finite-differencing the FULL byte-CE loss < 1e-4; (4b) four new tape ops `scale`/`hadamard`/
+  `row_mean`/`relu`, each with a hand-oracle gradcheck + anti-vacuity canary; (4c) `loss.rs` — the
+  composite objective `λ_byte·byte_ce + λ_pat·JEPA + λ_inv·invariance + λ_var·VICReg-variance-hinge`
+  as one graph, `gradcheck_full_loss` < 1e-4, and `test_loss_switches` (no_invariance changes the
+  loss value; no_stopgrad leaves the value identical but changes the gradient; a λ change scales its
+  term). JEPA target uses a frozen stop-gradient constant; the `infonce`/`vq` regularizer arms are
+  C6 stubs (jepa_vicreg wired for G0). Watched each op/loss gradcheck go RED on a broken derivative
+  before green (Rule 4). **cargo test --workspace = 109 passed / 0 failed**; fmt/clippy/canary-lint
+  clean; zero new deps. Remaining for the Phase-1 gate: `kae_markov` entropy-floor end-to-end + the
+  training loop, then the G0 run over ≥5 seeds → generated `reports/PHASE-1.md` + worth-pursuing
+  verdict.
