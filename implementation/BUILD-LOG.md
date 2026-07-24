@@ -7,7 +7,7 @@ DONE(gate PASS), NARROWED, BLOCKED}.
 | phase | scope | agent(s) | status | gate result (see RESULTS.md) |
 |---|---|---|---|---|
 | 0 | workspace + kernels + oracle + anti-fake harness + CI | Sonnet (core/oracle/train/CI), Haiku (qilm-data) | **DONE (gate PASS)** | gradcheck PASS (9.99e-13 < 1e-4); bind.rs mutation 73/73 viable caught, 0 survivors |
-| 1 | next-pattern predictor + L_inv + G0 | lead (single-threaded after a quota break) | **IN-PROGRESS** | infra + metrics landed (autodiff tape; born head; collapse/BPB metrics + gate arms + controls); pattern model + loss + G0 run pending |
+| 1 | next-pattern predictor + L_inv + G0 | lead (single-threaded) | **GATE: STOP** | G0 run (5 seeds, provenance-checked): collapse FAIL + g0 FAIL → **STOP** (see reports/PHASE-1.md). Baseline reaches the entropy floor; Born-head pattern arm collapses to the marginal. |
 | 2 | attractor memory + encoder invariance (H4) | — | not started | — |
 | 3 | glow / calibration (H5) | — | not started | — |
 | 4 | complex/phase ablation (H1) | — | not started | — |
@@ -104,3 +104,18 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   clean; zero new deps. Remaining for the Phase-1 gate: `kae_markov` entropy-floor end-to-end + the
   training loop, then the G0 run over ≥5 seeds → generated `reports/PHASE-1.md` + worth-pursuing
   verdict.
+- **PHASE-1 GATE RESOLVED → STOP** (`reports/PHASE-1.md`, generated from the provenance-checked
+  5-seed run `runs/phase1_g0`). Built the training path (SGD, corpus batching, tape-based training
+  forwards) and the `g0` binary. Results (see the generated report, not this log — rule 5): the
+  byte-softmax **baseline reaches the source's analytic entropy floor** (`kae_markov` GREEN — the
+  KAE methodology and the training path are validated), but the **Born-head pattern model FAILS both
+  project-kill gates**: it collapses (collapse gate FAIL) and lands at the order-0 marginal, ~50%
+  worse BPB than the baseline (g0 gate FAIL), consistently across all 5 seeds. Mechanical verdict:
+  **STOP**. Diagnosis (from a bounded, documented tuning sweep — NOT threshold-shopping): under the
+  full jepa_vicreg objective the representation collapses; even byte-CE-only (best case, no
+  collapse) the pattern arm plateaus at ratio ≈ 1.20, still failing ≤ 1.10. Contributing causes —
+  the VICReg term here is variance-only (no covariance decorrelation, so high per-dim variance can
+  coexist with low erank), the `d_z = 8` bottleneck for a 16-symbol alphabet, plain SGD vs the
+  baseline's easier softmax objective. These are candidate fixes IF a NARROWED continuation is
+  authorized, but at the pre-registered iso-param config + equal-tuning budget the gate is a clean
+  STOP, reported as-is (rules 6/7).
