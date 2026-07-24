@@ -10,6 +10,7 @@
 //! Forward here is plain arithmetic (evaluation only, no grad); the training
 //! forward that threads these through the autodiff tape comes with the G0 run.
 
+use qilm_core::autodiff::{NodeId, Shape, Tape};
 use std::f64::consts::LN_2;
 
 /// Shape of the byte baseline. `vocab` is 256 for raw bytes.
@@ -99,6 +100,63 @@ impl TokenModel {
         let sum_exp: f64 = logits.iter().map(|&l| (l - max).exp()).sum();
         let log_sum_exp = sum_exp.ln() + max;
         logits.iter().map(|&l| l - log_sum_exp).collect()
+    }
+
+    /// Tape parameter leaves `(E, W, b)` from the flat `params`.
+    fn leaves(&self, tape: &mut Tape, params: &[f64]) -> (NodeId, NodeId, NodeId) {
+        let (v, d) = (self.vocab, self.d);
+        let e = tape.leaf(params[..v * d].to_vec(), Shape::mat(v, d));
+        let w = tape.leaf(params[v * d..v * d + d * v].to_vec(), Shape::mat(d, v));
+        let b = tape.leaf(params[v * d + d * v..].to_vec(), Shape::row(v));
+        (e, w, b)
+    }
+
+    /// Build the softmax forward on `tape`: bag `(batch × vocab)` → mean-pool
+    /// embed `c = bag·E` → `logits = c·W + b` → `log_softmax`. Returns the
+    /// log-prob node and the leaves.
+    fn forward_tape(
+        &self,
+        tape: &mut Tape,
+        params: &[f64],
+        bag: &[f64],
+        batch: usize,
+    ) -> (NodeId, (NodeId, NodeId, NodeId)) {
+        assert_eq!(bag.len(), batch * self.vocab, "bag shape mismatch");
+        let (e, w, b) = self.leaves(tape, params);
+        let bag_node = tape.leaf(bag.to_vec(), Shape::mat(batch, self.vocab));
+        let c = tape.matmul(bag_node, e);
+        let logits = tape.linear(c, w, b);
+        let logp = tape.log_softmax(logits);
+        (logp, (e, w, b))
+    }
+
+    /// Cross-entropy loss + gradient (one entry per param, layout order) for a
+    /// batch of context bags and next-byte targets. The training forward.
+    pub fn ce_loss_and_grad(
+        &self,
+        params: &[f64],
+        bag: &[f64],
+        batch: usize,
+        targets: &[usize],
+    ) -> (f64, Vec<f64>) {
+        let mut tape = Tape::new();
+        let (logp, (e, w, b)) = self.forward_tape(&mut tape, params, bag, batch);
+        let ce = tape.cross_entropy(logp, targets);
+        let loss = tape.value(ce)[0];
+        tape.backward(ce);
+        let mut g = Vec::with_capacity(self.num_params());
+        for leaf in [e, w, b] {
+            g.extend_from_slice(tape.grad(leaf));
+        }
+        (loss, g)
+    }
+
+    /// Natural-log next-byte distributions for a batch of context bags, row
+    /// major `(batch × vocab)` — for BPB evaluation via `metrics::bpb::bpb`.
+    pub fn logp_batch(&self, params: &[f64], bag: &[f64], batch: usize) -> Vec<f64> {
+        let mut tape = Tape::new();
+        let (logp, _l) = self.forward_tape(&mut tape, params, bag, batch);
+        tape.value(logp).to_vec()
     }
 
     /// Convenience: score a byte stream's BPB in bits, sliding a `context_len`

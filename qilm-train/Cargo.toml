@@ -31,3 +31,7 @@ path = "src/bin/gate.rs"
 [[bin]]
 name = "selfcheck"
 path = "src/bin/selfcheck.rs"
+
+[[bin]]
+name = "g0"
+path = "src/bin/g0.rs"

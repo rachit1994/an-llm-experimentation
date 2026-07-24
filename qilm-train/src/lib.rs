@@ -17,3 +17,4 @@ pub mod model_token;
 pub mod provenance;
 pub mod report;
 pub mod testkit;
+pub mod train;

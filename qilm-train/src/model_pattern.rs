@@ -165,6 +165,31 @@ impl PatternModel {
         tape.leaf(bag.to_vec(), Shape::mat(batch, self.vocab))
     }
 
+    /// Natural-log next-byte distributions `(batch × vocab)` from the Born head
+    /// (bag → encode → predict → born_logits → log_softmax) — for BPB eval via
+    /// `metrics::bpb::bpb`. No backward.
+    pub fn logp_batch(&self, params: &[f64], bag: &[f64], batch: usize) -> Vec<f64> {
+        let mut tape = Tape::new();
+        let l = self.leaves(&mut tape, params);
+        let bag_node = self.bag_leaf(&mut tape, bag, batch);
+        let z = self.encode_z(&mut tape, &l, bag_node);
+        let z_hat = self.predict(&mut tape, &l, z);
+        let a = tape.linear(z_hat, l.w_head, l.b_head);
+        let logits = tape.born_logits(a);
+        let logp = tape.log_softmax(logits);
+        tape.value(logp).to_vec()
+    }
+
+    /// The encoder representations `z` for a batch of bags, row-major
+    /// `(batch × d_z)` — the matrix the collapse metric measures.
+    pub fn z_batch(&self, params: &[f64], bag: &[f64], batch: usize) -> Vec<f64> {
+        let mut tape = Tape::new();
+        let l = self.leaves(&mut tape, params);
+        let bag_node = self.bag_leaf(&mut tape, bag, batch);
+        let z = self.encode_z(&mut tape, &l, bag_node);
+        tape.value(z).to_vec()
+    }
+
     /// Build the full forward graph on `tape` for a batch: bag context →
     /// encode → predict → Born head → byte cross-entropy against `targets`.
     /// Returns the exposed nodes and the parameter leaves (for grad readout).
