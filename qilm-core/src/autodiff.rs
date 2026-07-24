@@ -132,6 +132,9 @@ enum Op {
     Relu {
         x: NodeId,
     },
+    Sqrt {
+        x: NodeId,
+    },
     Transpose {
         x: NodeId,
     },
@@ -419,6 +422,24 @@ impl Tape {
         self.push(value, shape, Op::Relu { x })
     }
 
+    /// Elementwise `sqrt(x)` (inputs must be `>= 0`; the VICReg std term feeds
+    /// `var + eps > 0`). Backward `dy/dx = 1/(2·sqrt(x)) = 1/(2y)` uses the
+    /// cached output `y`. The `1/sqrt` gradient near zero is exactly what gives
+    /// the std-based variance hinge its strong escape force from collapse (which
+    /// a plain-variance hinge, gradient `∝ (z-mean)`, lacks).
+    pub fn sqrt(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let value: Vec<f64> = self.nodes[x]
+            .value
+            .iter()
+            .map(|v| {
+                debug_assert!(*v >= 0.0, "Tape::sqrt: negative input {v}");
+                v.max(0.0).sqrt()
+            })
+            .collect();
+        self.push(value, shape, Op::Sqrt { x })
+    }
+
     /// Matrix transpose `(rows × cols) -> (cols × rows)`. Needed for the VICReg
     /// covariance term `Zᶜᵀ·Zᶜ`. Backward is just the transpose of the incoming
     /// gradient.
@@ -618,6 +639,16 @@ impl Tape {
                     .iter()
                     .zip(&node_value)
                     .map(|(g, y)| if *y > 0.0 { *g } else { 0.0 })
+                    .collect();
+                self.accumulate(x, &gx);
+            }
+            Op::Sqrt { x } => {
+                // y = sqrt(x); dL/dx = dL/dy / (2y). Guard y==0 (x was 0).
+                let node_value = self.nodes[i].value.clone();
+                let gx: Vec<f64> = node_grad
+                    .iter()
+                    .zip(&node_value)
+                    .map(|(g, y)| if *y > 0.0 { g / (2.0 * y) } else { 0.0 })
                     .collect();
                 self.accumulate(x, &gx);
             }

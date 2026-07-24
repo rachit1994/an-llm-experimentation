@@ -259,3 +259,39 @@ fn gradcheck_autodiff_transpose_can_say_no() {
     let wrong = |x: &[f64]| tr_grad(x).iter().map(|v| v * 0.5).collect::<Vec<_>>();
     assert!(gradcheck(tr_loss, wrong, &x, 1e-4) > 1e-4);
 }
+
+// ---------------------------------------------------------------- sqrt(x)
+// Linear scalarizer L = Σ sqrt(x_i)  ⇒  dL/dx_i = 1/(2·sqrt(x_i)).  Inputs > 0.
+fn sqrt_loss(x: &[f64]) -> f64 {
+    x.iter().map(|v| v.sqrt()).sum()
+}
+fn sqrt_grad(x: &[f64]) -> Vec<f64> {
+    x.iter().map(|v| 0.5 / v.sqrt()).collect()
+}
+
+#[test]
+fn gradcheck_autodiff_sqrt() {
+    let x = vec![0.5, 1.3, 2.0, 0.8, 3.1];
+    assert!(gradcheck(sqrt_loss, sqrt_grad, &x, 1e-4) < 1e-4);
+
+    // oracle-matches-tape via sum_squares(sqrt(x)) = Σ x  ⇒  grad = all 1s
+    // (this exercises the 1/(2y) backward composing to exactly 1).
+    let mut t = Tape::new();
+    let l = t.leaf(x.clone(), Shape::row(x.len()));
+    let y = t.sqrt(l);
+    let sq = t.sum_squares(y);
+    t.backward(sq);
+    let expected: f64 = x.iter().sum();
+    assert!((t.value(sq)[0] - expected).abs() < 1e-9);
+    for g in t.grad(l) {
+        assert!((g - 1.0).abs() < 1e-9, "d(Σ x)/dx should be 1, got {g}");
+    }
+}
+
+#[test]
+fn gradcheck_autodiff_sqrt_can_say_no() {
+    // WRONG: 1/sqrt(x) (missing the 1/2) — must disagree.
+    let x = vec![0.5, 1.3, 2.0, 0.8];
+    let wrong = |x: &[f64]| x.iter().map(|v| 1.0 / v.sqrt()).collect::<Vec<_>>();
+    assert!(gradcheck(sqrt_loss, wrong, &x, 1e-4) > 1e-4);
+}

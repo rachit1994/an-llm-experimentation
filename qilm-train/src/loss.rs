@@ -101,12 +101,19 @@ fn vicreg_anti_collapse(
     let neg_mean = tape.scale(mean, -1.0);
     let centered = tape.add(z, neg_mean); // (batch × d), mean broadcast over rows
 
-    // variance hinge
+    // VICReg variance hinge on the STANDARD DEVIATION (not the variance): the
+    // sqrt is essential — its `1/sqrt(var+eps)` gradient is a large wake-up
+    // force for a collapsed dim, whereas a plain-variance hinge's gradient
+    // `∝ (z-mean)` VANISHES at collapse, leaving dead dims permanently dead.
+    const VAR_EPS: f64 = 1e-4; // VICReg's numerical floor inside the sqrt
     let sq = tape.hadamard(centered, centered);
     let var = tape.row_mean(sq); // (1 × d) population variance per dim
-    let neg_var = tape.scale(var, -1.0);
-    let ones = tape.leaf(vec![1.0; d], Shape::row(d)); // target variance γ² = 1
-    let gap = tape.add(ones, neg_var); // 1 − var_j
+    let eps = tape.leaf(vec![VAR_EPS; d], Shape::row(d));
+    let var_eps = tape.add(var, eps);
+    let std = tape.sqrt(var_eps); // (1 × d) per-dim standard deviation
+    let neg_std = tape.scale(std, -1.0);
+    let ones = tape.leaf(vec![1.0; d], Shape::row(d)); // target std γ = 1
+    let gap = tape.add(ones, neg_std); // 1 − std_j (VICReg hinge)
     let hinge = tape.relu(gap);
     let ones_col = tape.leaf(vec![1.0; d], Shape::mat(d, 1));
     let var_term = tape.matmul(hinge, ones_col); // (1 × 1)
