@@ -103,8 +103,10 @@ impl PatternModel {
     }
 
     /// Create all parameter leaves on `tape` from the flat `params`, in layout
-    /// order, returning their NodeIds.
-    fn param_leaves(&self, tape: &mut Tape, params: &[f64]) -> ParamLeaves {
+    /// order, returning their NodeIds. Public so a composite loss (loss.rs) can
+    /// create the shared leaves ONCE and run the encoder on several bags
+    /// (context / next / augmented view) without duplicating parameters.
+    pub fn leaves(&self, tape: &mut Tape, params: &[f64]) -> ParamLeaves {
         assert_eq!(
             params.len(),
             self.num_params(),
@@ -130,6 +132,39 @@ impl PatternModel {
         }
     }
 
+    /// Encoder block: bag `(batch × vocab)` → `z = tanh((bag·E)·W_enc+b_enc)`.
+    /// Reusable across bags that share `leaves` (context / next / view).
+    pub fn encode_z(&self, tape: &mut Tape, l: &ParamLeaves, bag_node: NodeId) -> NodeId {
+        encode(tape, bag_node, l.e, l.w_enc, l.b_enc)
+    }
+
+    /// Predictor block: `ẑ = tanh(z·W_pred + b_pred)`.
+    pub fn predict(&self, tape: &mut Tape, l: &ParamLeaves, z: NodeId) -> NodeId {
+        let pre = tape.linear(z, l.w_pred, l.b_pred);
+        tape.tanh(pre)
+    }
+
+    /// Born head + byte cross-entropy: `a = ẑ·W_head+b_head → born_logits →
+    /// log_softmax → CE(targets)`.
+    pub fn born_ce(
+        &self,
+        tape: &mut Tape,
+        l: &ParamLeaves,
+        z_hat: NodeId,
+        targets: &[usize],
+    ) -> NodeId {
+        let a = tape.linear(z_hat, l.w_head, l.b_head);
+        let logits = tape.born_logits(a);
+        let logp = tape.log_softmax(logits);
+        tape.cross_entropy(logp, targets)
+    }
+
+    /// Make a bag input leaf `(batch × vocab)` on the tape.
+    pub fn bag_leaf(&self, tape: &mut Tape, bag: &[f64], batch: usize) -> NodeId {
+        assert_eq!(bag.len(), batch * self.vocab, "bag shape mismatch");
+        tape.leaf(bag.to_vec(), Shape::mat(batch, self.vocab))
+    }
+
     /// Build the full forward graph on `tape` for a batch: bag context →
     /// encode → predict → Born head → byte cross-entropy against `targets`.
     /// Returns the exposed nodes and the parameter leaves (for grad readout).
@@ -141,21 +176,12 @@ impl PatternModel {
         batch: usize,
         targets: &[usize],
     ) -> (Forward, ParamLeaves) {
-        assert_eq!(bag.len(), batch * self.vocab, "bag shape mismatch");
         assert_eq!(targets.len(), batch, "one target per batch row");
-        let p = self.param_leaves(tape, params);
-        let bag_node = tape.leaf(bag.to_vec(), Shape::mat(batch, self.vocab));
-
-        let z = encode(tape, bag_node, p.e, p.w_enc, p.b_enc);
-        // predict next pattern ẑ = tanh(z·W_pred + b_pred)
-        let pre = tape.linear(z, p.w_pred, p.b_pred);
-        let z_hat = tape.tanh(pre);
-        // Born head: amplitudes a = ẑ·W_head + b_head → born_logits → log_softmax → CE
-        let a = tape.linear(z_hat, p.w_head, p.b_head);
-        let logits = tape.born_logits(a);
-        let logp = tape.log_softmax(logits);
-        let byte_ce = tape.cross_entropy(logp, targets);
-
+        let p = self.leaves(tape, params);
+        let bag_node = self.bag_leaf(tape, bag, batch);
+        let z = self.encode_z(tape, &p, bag_node);
+        let z_hat = self.predict(tape, &p, z);
+        let byte_ce = self.born_ce(tape, &p, z_hat, targets);
         (Forward { z, z_hat, byte_ce }, p)
     }
 
@@ -173,13 +199,20 @@ impl PatternModel {
         let (fwd, p) = self.forward(&mut tape, params, bag, batch, targets);
         let loss = tape.value(fwd.byte_ce)[0];
         tape.backward(fwd.byte_ce);
-        let mut grads = Vec::with_capacity(self.num_params());
+        (loss, self.grads_in_order(&tape, &p))
+    }
+
+    /// Read each parameter leaf's gradient off `tape` (after a `backward`) in
+    /// the flat layout order — the inverse of `leaves`. Shared by the byte-CE
+    /// step and the composite loss (loss.rs).
+    pub fn grads_in_order(&self, tape: &Tape, l: &ParamLeaves) -> Vec<f64> {
+        let mut g = Vec::with_capacity(self.num_params());
         for leaf in [
-            p.e, p.w_enc, p.b_enc, p.w_pred, p.b_pred, p.w_head, p.b_head,
+            l.e, l.w_enc, l.b_enc, l.w_pred, l.b_pred, l.w_head, l.b_head,
         ] {
-            grads.extend_from_slice(tape.grad(leaf));
+            g.extend_from_slice(tape.grad(leaf));
         }
-        (loss, grads)
+        g
     }
 }
 

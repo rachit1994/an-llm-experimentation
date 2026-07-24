@@ -10,6 +10,7 @@
 #![allow(dead_code)]
 
 pub mod gate;
+pub mod loss;
 pub mod metrics;
 pub mod model_pattern;
 pub mod model_token;
