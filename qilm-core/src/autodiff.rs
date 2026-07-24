@@ -35,6 +35,13 @@
 //! gradient stay finite as `a → 0`). This mirrors `born.rs`'s squared-magnitude
 //! -> normalize semantics (T0.4), expressed in the tape's log domain.
 //!
+//! Phase-1 loss ops (T1.2): `scale` (×const), `hadamard` (elementwise product),
+//! `row_mean` (`(rows×cols)->(1×cols)` column means), and `relu` — the minimal
+//! set needed to express the JEPA prediction term, the VICReg-style variance
+//! hinge, and the invariance term as tape nodes, so the FULL training loss (not
+//! just byte-CE) is one differentiable graph gradchecked end-to-end (T1.1).
+//! Each has its own `gradcheck_autodiff_*` oracle + anti-vacuity canary.
+//!
 //! CORRECTNESS: every op here is validated in `qilm-oracle/tests/` by a
 //! `gradcheck_autodiff_*` test against a hand-derived, tape-independent oracle
 //! (closed-form forward + closed-form analytic gradient), cross-checked
@@ -110,6 +117,20 @@ enum Op {
         logp: NodeId,
         /// one target class index per row of `logp`.
         targets: Vec<usize>,
+    },
+    Scale {
+        x: NodeId,
+        s: f64,
+    },
+    Hadamard {
+        a: NodeId,
+        b: NodeId,
+    },
+    RowMean {
+        x: NodeId,
+    },
+    Relu {
+        x: NodeId,
     },
 }
 
@@ -338,6 +359,63 @@ impl Tape {
         )
     }
 
+    /// Elementwise multiply by a constant scalar `s` (no gradient flows to `s`;
+    /// it is a fixed hyperparameter, e.g. a loss weight or a sign flip). Lets
+    /// the loss compose weighted terms and negations without a new "sub" op.
+    pub fn scale(&mut self, x: NodeId, s: f64) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let value: Vec<f64> = self.nodes[x].value.iter().map(|v| v * s).collect();
+        self.push(value, shape, Op::Scale { x, s })
+    }
+
+    /// Elementwise (Hadamard) product of two same-shape tensors. `d(a⊙b)/da =
+    /// b`, `/db = a`. Used to square (`hadamard(x, x)`) for the variance term.
+    pub fn hadamard(&mut self, a: NodeId, b: NodeId) -> NodeId {
+        let a_shape = self.nodes[a].shape;
+        let b_shape = self.nodes[b].shape;
+        assert_eq!(
+            a_shape, b_shape,
+            "Tape::hadamard: shape mismatch {a_shape:?} vs {b_shape:?}"
+        );
+        let value: Vec<f64> = self.nodes[a]
+            .value
+            .iter()
+            .zip(&self.nodes[b].value)
+            .map(|(x, y)| x * y)
+            .collect();
+        self.push(value, a_shape, Op::Hadamard { a, b })
+    }
+
+    /// Column means over the rows: `(rows × cols) -> (1 × cols)`,
+    /// `y_j = (1/rows) Σ_i x_ij`. Used to center representations and to reduce
+    /// the per-dimension variance. Backward spreads `grad_y_j / rows` to every
+    /// row of column `j`.
+    pub fn row_mean(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let (rows, cols) = (shape.rows, shape.cols);
+        let xv = &self.nodes[x].value;
+        let mut value = vec![0.0; cols];
+        for r in 0..rows {
+            for c in 0..cols {
+                value[c] += xv[r * cols + c];
+            }
+        }
+        let inv = 1.0 / rows as f64;
+        for v in value.iter_mut() {
+            *v *= inv;
+        }
+        self.push(value, Shape::row(cols), Op::RowMean { x })
+    }
+
+    /// Elementwise ReLU `max(0, x)`. Subgradient `1[x > 0]` (0 at the kink,
+    /// which finite differences avoid for generic inputs). The hinge in the
+    /// VICReg-style variance term is built from this.
+    pub fn relu(&mut self, x: NodeId) -> NodeId {
+        let shape = self.nodes[x].shape;
+        let value: Vec<f64> = self.nodes[x].value.iter().map(|v| v.max(0.0)).collect();
+        self.push(value, shape, Op::Relu { x })
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -484,6 +562,45 @@ impl Tape {
                     g[r * cols + t] = -scale;
                 }
                 self.accumulate(logp, &g);
+            }
+            Op::Scale { x, s } => {
+                // y = s·x; dL/dx = s·dL/dy.
+                let gx: Vec<f64> = node_grad.iter().map(|g| g * s).collect();
+                self.accumulate(x, &gx);
+            }
+            Op::Hadamard { a, b } => {
+                // y = a⊙b; dL/da = dL/dy⊙b, dL/db = dL/dy⊙a.
+                let a_val = self.nodes[a].value.clone();
+                let b_val = self.nodes[b].value.clone();
+                let ga: Vec<f64> = node_grad.iter().zip(&b_val).map(|(g, bv)| g * bv).collect();
+                let gb: Vec<f64> = node_grad.iter().zip(&a_val).map(|(g, av)| g * av).collect();
+                self.accumulate(a, &ga);
+                self.accumulate(b, &gb);
+            }
+            Op::RowMean { x } => {
+                // y_j = (1/rows) Σ_i x_ij; dL/dx_ij = dL/dy_j / rows (every row
+                // of column j gets the same share).
+                let x_shape = self.nodes[x].shape;
+                let (rows, cols) = (x_shape.rows, x_shape.cols);
+                let inv = 1.0 / rows as f64;
+                let mut gx = vec![0.0; rows * cols];
+                for r in 0..rows {
+                    for c in 0..cols {
+                        gx[r * cols + c] = node_grad[c] * inv;
+                    }
+                }
+                self.accumulate(x, &gx);
+            }
+            Op::Relu { x } => {
+                // y = max(0, x); dL/dx = dL/dy · 1[x > 0]. Uses the cached
+                // forward output y (y > 0 ⟺ x > 0).
+                let node_value = self.nodes[i].value.clone();
+                let gx: Vec<f64> = node_grad
+                    .iter()
+                    .zip(&node_value)
+                    .map(|(g, y)| if *y > 0.0 { *g } else { 0.0 })
+                    .collect();
+                self.accumulate(x, &gx);
             }
         }
     }
