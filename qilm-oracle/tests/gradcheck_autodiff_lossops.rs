@@ -190,3 +190,72 @@ fn gradcheck_autodiff_relu_can_say_no() {
     let wrong = |x: &[f64]| x.iter().map(|v| 2.0 * v).collect::<Vec<_>>();
     assert!(gradcheck(relu_loss, wrong, &x, 1e-4) > 1e-4);
 }
+
+// ------------------------------------------------------------- transpose(x)
+// Exercised through the Gram composition the covariance term uses:
+// X is (TR × TC), G = Xᵀ·X (TC × TC), L = Σ G²  ⇒  dL/dX = 4·X·G  (G symmetric).
+const TR: usize = 3;
+const TC: usize = 2;
+fn gram(x: &[f64]) -> Vec<f64> {
+    let mut g = vec![0.0; TC * TC];
+    for a in 0..TC {
+        for b in 0..TC {
+            let mut s = 0.0;
+            for i in 0..TR {
+                s += x[i * TC + a] * x[i * TC + b];
+            }
+            g[a * TC + b] = s;
+        }
+    }
+    g
+}
+fn tr_loss(x: &[f64]) -> f64 {
+    gram(x).iter().map(|v| v * v).sum()
+}
+fn tr_grad(x: &[f64]) -> Vec<f64> {
+    let g = gram(x);
+    let mut out = vec![0.0; TR * TC];
+    for i in 0..TR {
+        for c in 0..TC {
+            let mut s = 0.0;
+            for b in 0..TC {
+                s += x[i * TC + b] * g[b * TC + c];
+            }
+            out[i * TC + c] = 4.0 * s;
+        }
+    }
+    out
+}
+
+#[test]
+fn gradcheck_autodiff_transpose() {
+    let x = vec![0.7, -0.4, 1.2, 0.9, -1.1, 0.5];
+    assert!(gradcheck(tr_loss, tr_grad, &x, 1e-4) < 1e-4);
+
+    // exact oracle-matches-tape: value (Xᵀ shape/entries) and gradient.
+    let mut t = Tape::new();
+    let lx = t.leaf(x.clone(), Shape::mat(TR, TC));
+    let xt = t.transpose(lx);
+    assert_eq!(t.shape(xt), Shape::mat(TC, TR));
+    // Xᵀ[j][i] == X[i][j]
+    for i in 0..TR {
+        for j in 0..TC {
+            assert!((t.value(xt)[j * TR + i] - x[i * TC + j]).abs() < 1e-12);
+        }
+    }
+    let g = t.matmul(xt, lx); // Xᵀ·X
+    let sq = t.sum_squares(g);
+    t.backward(sq);
+    assert!((t.value(sq)[0] - tr_loss(&x)).abs() < 1e-9);
+    for (a, b) in t.grad(lx).iter().zip(tr_grad(&x)) {
+        assert!((a - b).abs() < 1e-9, "transpose grad tape={a} oracle={b}");
+    }
+}
+
+#[test]
+fn gradcheck_autodiff_transpose_can_say_no() {
+    // WRONG: 2·X·G instead of 4·X·G — must disagree.
+    let x = vec![0.7, -0.4, 1.2, 0.9, -1.1, 0.5];
+    let wrong = |x: &[f64]| tr_grad(x).iter().map(|v| v * 0.5).collect::<Vec<_>>();
+    assert!(gradcheck(tr_loss, wrong, &x, 1e-4) > 1e-4);
+}

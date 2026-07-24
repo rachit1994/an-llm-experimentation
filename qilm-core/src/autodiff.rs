@@ -132,6 +132,9 @@ enum Op {
     Relu {
         x: NodeId,
     },
+    Transpose {
+        x: NodeId,
+    },
 }
 
 struct Node {
@@ -416,6 +419,22 @@ impl Tape {
         self.push(value, shape, Op::Relu { x })
     }
 
+    /// Matrix transpose `(rows × cols) -> (cols × rows)`. Needed for the VICReg
+    /// covariance term `Zᶜᵀ·Zᶜ`. Backward is just the transpose of the incoming
+    /// gradient.
+    pub fn transpose(&mut self, x: NodeId) -> NodeId {
+        let s = self.nodes[x].shape;
+        let (rows, cols) = (s.rows, s.cols);
+        let xv = &self.nodes[x].value;
+        let mut value = vec![0.0; rows * cols];
+        for i in 0..rows {
+            for j in 0..cols {
+                value[j * rows + i] = xv[i * cols + j];
+            }
+        }
+        self.push(value, Shape::mat(cols, rows), Op::Transpose { x })
+    }
+
     fn accumulate(&mut self, id: NodeId, g: &[f64]) {
         let node = &mut self.nodes[id];
         debug_assert_eq!(node.grad.len(), g.len());
@@ -600,6 +619,18 @@ impl Tape {
                     .zip(&node_value)
                     .map(|(g, y)| if *y > 0.0 { *g } else { 0.0 })
                     .collect();
+                self.accumulate(x, &gx);
+            }
+            Op::Transpose { x } => {
+                // y = xᵀ (out is cols×rows); dL/dx[i][j] = dL/dy[j][i].
+                let x_shape = self.nodes[x].shape;
+                let (rows, cols) = (x_shape.rows, x_shape.cols);
+                let mut gx = vec![0.0; rows * cols];
+                for i2 in 0..rows {
+                    for j in 0..cols {
+                        gx[i2 * cols + j] = node_grad[j * rows + i2];
+                    }
+                }
                 self.accumulate(x, &gx);
             }
         }

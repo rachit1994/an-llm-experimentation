@@ -43,6 +43,9 @@ pub struct LossConfig {
     pub lambda_pattern: f64,
     pub lambda_inv: f64,
     pub lambda_var: f64,
+    /// Weight on the VICReg covariance (decorrelation) term. Zero reproduces the
+    /// original variance-only anti-collapse.
+    pub lambda_cov: f64,
     pub no_invariance: bool,
     pub no_stopgrad: bool,
     pub regularizer: Regularizer,
@@ -55,6 +58,7 @@ impl Default for LossConfig {
             lambda_pattern: 1.0,
             lambda_inv: 1.0,
             lambda_var: 1.0,
+            lambda_cov: 1.0,
             no_invariance: false,
             no_stopgrad: false,
             regularizer: Regularizer::JepaVicreg,
@@ -80,11 +84,24 @@ fn sq_diff(tape: &mut Tape, a: NodeId, b: NodeId) -> NodeId {
     tape.sum_squares(diff)
 }
 
-/// VICReg variance hinge on `z` (batch × d): `Σ_j relu(1 − Var(z_j))`, a scalar.
-fn variance_hinge(tape: &mut Tape, z: NodeId, d: usize) -> NodeId {
+/// Full VICReg anti-collapse on `z` (batch × d): the weighted sum of a variance
+/// hinge `Σ_j relu(1 − Var(z_j))` (pushes each dim to unit std) and a covariance
+/// term `Σ_{i≠j} Cov(z)_ij²` (decorrelates the dims). The covariance piece is
+/// what the first Phase-1 attempt was missing — without it, high per-dim
+/// variance could coexist with a low effective rank / collapse. Returns
+/// `lambda_var·variance + lambda_cov·covariance` as a scalar node.
+fn vicreg_anti_collapse(
+    tape: &mut Tape,
+    z: NodeId,
+    d: usize,
+    lambda_var: f64,
+    lambda_cov: f64,
+) -> NodeId {
     let mean = tape.row_mean(z); // (1 × d)
     let neg_mean = tape.scale(mean, -1.0);
     let centered = tape.add(z, neg_mean); // (batch × d), mean broadcast over rows
+
+    // variance hinge
     let sq = tape.hadamard(centered, centered);
     let var = tape.row_mean(sq); // (1 × d) population variance per dim
     let neg_var = tape.scale(var, -1.0);
@@ -92,7 +109,22 @@ fn variance_hinge(tape: &mut Tape, z: NodeId, d: usize) -> NodeId {
     let gap = tape.add(ones, neg_var); // 1 − var_j
     let hinge = tape.relu(gap);
     let ones_col = tape.leaf(vec![1.0; d], Shape::mat(d, 1));
-    tape.matmul(hinge, ones_col) // Σ_j hinge_j → (1 × 1)
+    let var_term = tape.matmul(hinge, ones_col); // (1 × 1)
+
+    // covariance term: Σ off-diagonal of (Zᶜᵀ·Zᶜ) squared.
+    let zt = tape.transpose(centered); // (d × batch)
+    let cov = tape.matmul(zt, centered); // (d × d), unnormalized covariance
+    let mut mask = vec![1.0; d * d]; // 1 off-diagonal, 0 on-diagonal
+    for i in 0..d {
+        mask[i * d + i] = 0.0;
+    }
+    let mask_leaf = tape.leaf(mask, Shape::mat(d, d));
+    let offdiag = tape.hadamard(cov, mask_leaf);
+    let cov_term = tape.sum_squares(offdiag); // (1 × 1)
+
+    let wv = tape.scale(var_term, lambda_var);
+    let wc = tape.scale(cov_term, lambda_cov);
+    tape.add(wv, wc)
 }
 
 /// Build the full loss graph on `tape`, returning the scalar loss node and the
@@ -138,12 +170,13 @@ fn build(
         total = tape.add(total, wi);
     }
 
-    // Anti-collapse regularizer.
+    // Anti-collapse regularizer (already weighted internally by λ_var / λ_cov).
     let anti = match cfg.regularizer {
-        Regularizer::JepaVicreg => variance_hinge(tape, z_ctx, model.d_z),
+        Regularizer::JepaVicreg => {
+            vicreg_anti_collapse(tape, z_ctx, model.d_z, cfg.lambda_var, cfg.lambda_cov)
+        }
     };
-    let wv = tape.scale(anti, cfg.lambda_var);
-    total = tape.add(total, wv);
+    total = tape.add(total, anti);
 
     (total, l)
 }

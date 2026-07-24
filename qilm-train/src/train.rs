@@ -54,6 +54,34 @@ where
     params
 }
 
+/// Adam (Kingma & Ba 2015) with the standard defaults β1=0.9, β2=0.999, ε=1e-8.
+/// Adaptive per-parameter step sizes — a much stronger optimizer than plain SGD
+/// for the (harder) Born-head objective. Deterministic given `cfg.seed`.
+pub fn adam<F>(mut params: Vec<f64>, cfg: &SgdConfig, mut grad_fn: F) -> Vec<f64>
+where
+    F: FnMut(&[f64], &mut ChaCha20Rng) -> Vec<f64>,
+{
+    const B1: f64 = 0.9;
+    const B2: f64 = 0.999;
+    const EPS: f64 = 1e-8;
+    let mut rng = ChaCha20Rng::seed_from_u64(cfg.seed);
+    let mut m = vec![0.0; params.len()];
+    let mut v = vec![0.0; params.len()];
+    for step in 1..=cfg.steps {
+        let g = grad_fn(&params, &mut rng);
+        let bc1 = 1.0 - B1.powi(step as i32);
+        let bc2 = 1.0 - B2.powi(step as i32);
+        for i in 0..params.len() {
+            m[i] = B1 * m[i] + (1.0 - B1) * g[i];
+            v[i] = B2 * v[i] + (1.0 - B2) * g[i] * g[i];
+            let mhat = m[i] / bc1;
+            let vhat = v[i] / bc2;
+            params[i] -= cfg.lr * mhat / (vhat.sqrt() + EPS);
+        }
+    }
+    params
+}
+
 /// One sampled minibatch, as bags + targets ready for the models.
 pub struct BatchData {
     pub batch: usize,

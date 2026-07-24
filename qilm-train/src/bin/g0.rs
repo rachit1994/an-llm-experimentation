@@ -19,7 +19,7 @@ use qilm_train::metrics::collapse::collapse_ratios;
 use qilm_train::model_pattern::PatternModel;
 use qilm_train::model_token::TokenModel;
 use qilm_train::provenance::{discover_workspace_root, sha256_hex, write_metrics, MetricsInput};
-use qilm_train::train::{init_params, sgd, to_symbols, Corpus, SgdConfig};
+use qilm_train::train::{adam, init_params, to_symbols, Corpus, SgdConfig};
 use rand::{RngExt, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde_json::json;
@@ -42,14 +42,14 @@ fn reference_z(n: usize, d: usize) -> Vec<f64> {
 }
 
 fn train_token(k: usize, train: &Corpus, seed: u64) -> (TokenModel, Vec<f64>) {
-    let tok = TokenModel::new(k, 12, CTX);
+    let tok = TokenModel::new(k, 15, CTX);
     let cfg = SgdConfig {
         steps: 6000,
-        lr: 0.5,
+        lr: 0.01,
         batch: 128,
         seed,
     };
-    let p = sgd(
+    let p = adam(
         init_params(tok.num_params(), 0.1, seed + 1000),
         &cfg,
         |p, rng| {
@@ -66,15 +66,15 @@ fn train_pattern(
     cfg_loss: &LossConfig,
     seed: u64,
 ) -> (PatternModel, Vec<f64>) {
-    let pat = PatternModel::new(k, 8, 8, CTX);
+    let pat = PatternModel::new(k, 4, 12, CTX);
     let cfg = SgdConfig {
-        steps: 12000,
-        lr: 0.3,
+        steps: 6000,
+        lr: 0.01,
         batch: 128,
         seed,
     };
     let lc = *cfg_loss;
-    let p = sgd(
+    let p = adam(
         init_params(pat.num_params(), 0.3, seed + 2000),
         &cfg,
         |p, rng| {
@@ -95,7 +95,7 @@ fn train_pattern(
 /// Finite-difference gradcheck of the pattern full loss on a tiny batch — the
 /// Phase-1 infra number. Independent numeric oracle vs the tape's backprop.
 fn pattern_gradcheck(k: usize) -> f64 {
-    let pat = PatternModel::new(k, 8, 8, CTX);
+    let pat = PatternModel::new(k, 4, 12, CTX);
     let cfg = LossConfig {
         no_stopgrad: true,
         ..LossConfig::default()
@@ -133,7 +133,17 @@ fn main() {
     let held = Corpus::new(syms[split..].to_vec(), k);
     let (ebag, ebatch, etgt) = held.eval_bags(CTX);
 
-    let loss_cfg = LossConfig::default(); // the official jepa_vicreg objective
+    // Retry config (authorized single retry): full jepa_vicreg objective now
+    // WITH the covariance/decorrelation term (lambda_cov), byte-CE-anchored so
+    // BPB is the priority, trained with Adam on the un-pinched model.
+    let loss_cfg = LossConfig {
+        lambda_byte: 1.0,
+        lambda_pattern: 0.2,
+        lambda_inv: 0.2,
+        lambda_var: 1.0,
+        lambda_cov: 1.0,
+        ..LossConfig::default()
+    };
 
     let mut bpb_ratios = Vec::new();
     let mut erank_ratios = Vec::new();
@@ -174,7 +184,7 @@ fn main() {
 
     let wall_clock_s = start.elapsed().as_secs_f64();
     let config_bytes = format!(
-        "g0:markov(order=1,seed=7,n=600000):pattern(k={k},d_emb=8,d_z=8,ctx={CTX}):token(d=12):seeds={N_SEEDS}:lossdefault"
+        "g0-retry:markov(order=1,seed=7,n=600000):pattern(k={k},d_emb=4,d_z=12,ctx={CTX}):token(d=15):adam:vicreg+cov:seeds={N_SEEDS}"
     );
     let config_sha256 = sha256_hex(config_bytes.as_bytes());
 
