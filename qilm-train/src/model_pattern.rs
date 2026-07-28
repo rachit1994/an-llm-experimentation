@@ -23,6 +23,12 @@ pub struct PatternModel {
     pub d_emb: usize,
     pub d_z: usize,
     pub context_len: usize,
+    /// Whether the encoder/predictor apply a `tanh` nonlinearity. `true` is the
+    /// default model; `false` is the C6 "no-nonlinearity" ablation — for a
+    /// linear task (like the order-1 Markov source) the two tanh layers only
+    /// distort the fit, so this isolates whether the Born HEAD or the tanh STACK
+    /// is what trails the softmax baseline.
+    pub nonlinear: bool,
 }
 
 /// The tape nodes a forward pass exposes, so loss terms beyond byte-CE (T1.2)
@@ -47,6 +53,7 @@ impl PatternModel {
             d_emb,
             d_z,
             context_len,
+            nonlinear: true,
         }
     }
 
@@ -135,13 +142,23 @@ impl PatternModel {
     /// Encoder block: bag `(batch × vocab)` → `z = tanh((bag·E)·W_enc+b_enc)`.
     /// Reusable across bags that share `leaves` (context / next / view).
     pub fn encode_z(&self, tape: &mut Tape, l: &ParamLeaves, bag_node: NodeId) -> NodeId {
-        encode(tape, bag_node, l.e, l.w_enc, l.b_enc)
+        if self.nonlinear {
+            encode(tape, bag_node, l.e, l.w_enc, l.b_enc)
+        } else {
+            // linear encoder: (bag·E)·W_enc + b_enc, no tanh
+            let c = tape.matmul(bag_node, l.e);
+            tape.linear(c, l.w_enc, l.b_enc)
+        }
     }
 
     /// Predictor block: `ẑ = tanh(z·W_pred + b_pred)`.
     pub fn predict(&self, tape: &mut Tape, l: &ParamLeaves, z: NodeId) -> NodeId {
         let pre = tape.linear(z, l.w_pred, l.b_pred);
-        tape.tanh(pre)
+        if self.nonlinear {
+            tape.tanh(pre)
+        } else {
+            pre
+        }
     }
 
     /// Born head + byte cross-entropy: `a = ẑ·W_head+b_head → born_logits →
