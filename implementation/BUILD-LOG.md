@@ -129,3 +129,15 @@ DONE(gate PASS), NARROWED, BLOCKED}.
   variance/covariance anti-collapse can't push to unit variance without hurting BPB — the core VICReg
   balance tension, exacerbated by the tanh encoder. Verdict stands: **STOP**. This closes the
   pre-registered retry budget; no further tuning (rule 6).
+- **ROOT-CAUSE ISOLATED (why the Born head trails softmax).** Two findings, both from
+  instrumented experiments, not tuning: (1) the anti-collapse was a *variance* hinge whose gradient
+  vanishes at collapse, leaving dead dimensions dead — fixed with the *std* hinge (real VICReg;
+  added `sqrt` + `transpose` ops, gradchecked), which revived dead dims and improved bpb_ratio
+  1.50→~1.17. (2) A no-nonlinearity ablation (`PatternModel.nonlinear=false`) shows the residual
+  ~15% BPB gap is NOT the tanh stack (linear Born model ≈ same ratio ≈1.15) and NOT the optimizer
+  (Adam) or model size — it is INTRINSIC to the Born readout: representing a categorical next-token
+  distribution as squared amplitudes `a²/Σa²` is a poorer fit than the log-linear softmax, which is
+  the natural exponential-family parametrization for categorical prediction. This is a genuine
+  negative result, not a fixable defect. Phase-1 verdict remains **STOP** for the pattern arm as a
+  drop-in byte predictor; the Born rule's value (if any) would have to come from a task where the
+  squared-amplitude / interference structure is an asset, not from matching softmax at next-token CE.
